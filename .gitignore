@@ -1,0 +1,14 @@
+# binarios e pacotes gerados
+*.exe
+*.dll
+pacote/
+instalador/host/bin/
+instalador/host/lib/
+instalador/_build/
+instalador/ia-offline/
+# dados e backups pessoais: nunca versionar
+backup-*/
+backup-auto-*.json
+controle-financeiro-*.json
+seed.local.js
+previews/

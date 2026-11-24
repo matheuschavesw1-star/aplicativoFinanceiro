@@ -1,0 +1,2683 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="crimson">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1E2128" id="metaTema">
+<meta name="description" content="Controle financeiro: receitas, despesas, parcelas, imposto e projeção.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Orçamento">
+<title>Orçamento comprometido</title>
+<link rel="stylesheet" href="vendor/fonts.css">
+<script src="vendor/tailwind-3.4.17.js"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    colors: {
+      bg:'rgb(var(--bg) / <alpha-value>)', s1:'rgb(var(--s1) / <alpha-value>)', s2:'rgb(var(--s2) / <alpha-value>)',
+      fg:'rgb(var(--fg) / <alpha-value>)', mut:'rgb(var(--mut) / <alpha-value>)', dim:'rgb(var(--dim) / <alpha-value>)',
+      mint:'rgb(var(--mint) / <alpha-value>)', amber:'rgb(var(--amber) / <alpha-value>)', coral:'rgb(var(--coral) / <alpha-value>)',
+      indigo:'rgb(var(--indigo) / <alpha-value>)', cyan:'rgb(var(--cyan) / <alpha-value>)', income:'rgb(var(--income) / <alpha-value>)',
+      line:'var(--line)', hair:'var(--hair)'
+    },
+    fontFamily: {
+      sans:['Geist','Inter','ui-sans-serif','system-ui','-apple-system','Segoe UI','sans-serif'],
+      mono:['"Geist Mono"','"JetBrains Mono"','ui-monospace','SFMono-Regular','Menlo','monospace']
+    }
+  } }
+};
+</script>
+<script src="vendor/lucide-0.469.0.min.js"></script>
+<style>
+/* ───────── TEMAS ─────────
+   Cada tema define as variáveis semânticas abaixo. Cores são "R G B" (para permitir transparência);
+   bordas e realces já são cores completas.
+     --bg-app · --bg-card · --bg-elevated · --border-subtle
+     --text-primary · --text-secondary · --text-tertiary
+     --accent-primary · --accent-soft · --accent-support (tom de apoio dos gráficos)
+     --positive (saldo livre positivo) · --warning · --danger · --on-accent (texto sobre o destaque)
+   As variáveis antigas (--bg, --s1, --fg, --indigo ...) são apenas apelidos destas (bloco logo abaixo),
+   então toda a interface (gráficos, barras, selos, abas, janelas) acompanha o tema escolhido. */
+
+/* 1 · Meio-Termo Crimson (padrão): nem claro, nem escuro, destaque em vermelho */
+:root, :root[data-theme="crimson"]{
+  color-scheme:dark;
+  --bg-app:30 33 40; --bg-card:39 43 52; --bg-elevated:47 52 64;
+  --border-subtle:rgb(54 59 71); --hair-line:rgb(255 255 255 / .06);
+  --text-primary:243 244 246; --text-secondary:156 163 175; --text-tertiary:124 132 147;
+  --accent-primary:225 29 72; --accent-soft:rgb(225 29 72 / .16); --accent-support:251 113 133;
+  --positive:16 185 129; --warning:251 191 36; --danger:251 113 133; --on-accent:255 255 255;
+  --tab-active:rgb(255 255 255 / .09); --hl:rgb(255 255 255 / .05); --shadow:0 18px 40px -26px rgb(0 0 0 / .6);
+}
+/* 2 · Claro Editorial: off-white quente com acentos rubi */
+:root[data-theme="editorial"]{
+  color-scheme:light;
+  --bg-app:246 245 243; --bg-card:255 255 255; --bg-elevated:250 249 247;
+  --border-subtle:rgb(229 226 220); --hair-line:rgb(24 24 27 / .07);
+  --text-primary:24 24 27; --text-secondary:82 82 91; --text-tertiary:113 113 122;
+  --accent-primary:190 18 60; --accent-soft:rgb(190 18 60 / .10); --accent-support:244 63 94;
+  --positive:5 150 105; --warning:180 83 9; --danger:225 29 72; --on-accent:255 255 255;
+  --tab-active:rgb(255 255 255); --hl:rgb(255 255 255 / .9); --shadow:0 1px 2px rgb(24 24 27 / .04), 0 10px 28px -18px rgb(24 24 27 / .26);
+}
+/* 3 · Escuro Obsidian: dark profundo */
+:root[data-theme="obsidian"]{
+  color-scheme:dark;
+  --bg-app:9 9 11; --bg-card:18 18 21; --bg-elevated:24 24 27;
+  --border-subtle:rgb(255 255 255 / .08); --hair-line:rgb(255 255 255 / .06);
+  --text-primary:250 250 250; --text-secondary:161 161 170; --text-tertiary:132 132 142;
+  --accent-primary:244 63 94; --accent-soft:rgb(244 63 94 / .16); --accent-support:251 113 133;
+  --positive:16 185 129; --warning:251 191 36; --danger:251 113 133; --on-accent:255 255 255;
+  --tab-active:rgb(255 255 255 / .1); --hl:rgb(255 255 255 / .08); --shadow:0 24px 48px -28px rgb(0 0 0 / .85);
+}
+/* 4 · Ardósia Neutro: meio-termo frio, sem vermelho no destaque */
+:root[data-theme="ardosia"]{
+  color-scheme:dark;
+  --bg-app:30 41 59; --bg-card:41 53 72; --bg-elevated:49 63 86;
+  --border-subtle:rgb(59 73 99); --hair-line:rgb(255 255 255 / .07);
+  --text-primary:248 250 252; --text-secondary:148 163 184; --text-tertiary:122 138 163;
+  --accent-primary:56 189 248; --accent-soft:rgb(56 189 248 / .16); --accent-support:165 180 252;
+  --positive:16 185 129; --warning:251 191 36; --danger:251 113 133; --on-accent:15 23 42;
+  --tab-active:rgb(255 255 255 / .09); --hl:rgb(255 255 255 / .06); --shadow:0 18px 40px -26px rgb(2 6 23 / .6);
+}
+/* apelidos usados pelo resto do app (e pelo Tailwind) */
+:root{
+  --bg:var(--bg-app); --s1:var(--bg-card); --s2:var(--bg-elevated);
+  --fg:var(--text-primary); --mut:var(--text-secondary); --dim:var(--text-tertiary);
+  --indigo:var(--accent-primary); --cyan:var(--accent-support); --income:var(--accent-support);
+  --mint:var(--positive); --amber:var(--warning); --coral:var(--danger);
+  --line:var(--border-subtle); --hair:var(--hair-line);
+}
+/* troca de tema suave (a classe só existe durante ~0,4 s, para não interferir nas outras animações) */
+html.tema-anim *, html.tema-anim *::before, html.tema-anim *::after{
+  transition:background-color .2s ease, color .2s ease, border-color .2s ease, fill .2s ease, stroke .2s ease, box-shadow .2s ease !important;
+}
+html{
+  -webkit-text-size-adjust:100%;
+  font-size:16px;
+}
+/* Telas grandes: a escala segue a largura E a altura da janela, para o painel sempre caber inteiro. */
+@media (min-width:1024px) and (min-height:640px){
+  html{ font-size:clamp(13px, min(calc(0.536vw + 8.3px), 2.05vh), 28px); }
+}
+@media (min-width:1024px) and (max-height:639px){
+  html{ font-size:clamp(14px, calc(0.536vw + 8.3px), 28px); }
+}
+body{
+  margin:0;
+  font-variant-numeric:tabular-nums;
+  background-color:rgb(var(--bg));
+  background-image:
+    radial-gradient(900px 520px at 10% -12%, rgb(var(--accent-primary) / .07), transparent 60%),
+    radial-gradient(700px 420px at 100% 0%, rgb(var(--accent-support) / .05), transparent 60%);
+  background-attachment:fixed;
+}
+.num{font-family:"Geist Mono","JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.015em}
+.glass{
+  position:relative;
+  background:linear-gradient(180deg, rgb(var(--fg) / .02), rgb(var(--fg) / 0) 45%), rgb(var(--s1));
+  border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 var(--hl), var(--shadow);
+}
+.eyebrow{font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:rgb(var(--dim));font-weight:600}
+.fld{height:2.25rem;width:100%;border-radius:.6rem;border:1px solid var(--line);background:rgb(var(--fg) / .03);padding:0 .65rem;color:rgb(var(--fg));font-size:.875rem;outline:none;transition:border-color .15s, background .15s}
+.fld:hover{background:rgb(var(--fg) / .05)}
+.fld:focus{border-color:rgb(var(--accent-primary) / .7);box-shadow:0 0 0 3px var(--accent-soft)}
+.fld:disabled{opacity:.4}
+.fld option{background:rgb(var(--s1));color:rgb(var(--fg))}
+input[type=number].fld{text-align:right}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.25rem;padding:0 .85rem;border-radius:.65rem;border:1px solid var(--line);background:rgb(var(--s1));color:rgb(var(--fg));font-size:.875rem;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .15s, transform .15s, border-color .15s}
+.btn:hover{background:rgb(var(--fg) / .06)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-primary{background:rgb(var(--accent-primary));color:rgb(var(--on-accent));border-color:transparent}
+.btn-primary:hover{background:rgb(var(--accent-primary) / .88)}
+.btn-danger:hover{color:rgb(var(--coral));border-color:rgb(var(--coral) / .4)}
+.ibtn{display:inline-grid;place-items:center;width:2rem;height:2rem;border-radius:9999px;color:rgb(var(--mut));cursor:pointer;transition:background .15s,color .15s}
+.ibtn:hover{background:rgb(var(--fg) / .07);color:rgb(var(--fg))}
+.btn:focus-visible,.ibtn:focus-visible,.tab:focus-visible,summary:focus-visible{outline:2px solid rgb(var(--indigo));outline-offset:2px}
+.tab{display:inline-flex;align-items:center;gap:.45rem;height:2rem;padding:0 .8rem;border-radius:9999px;font-size:.84rem;font-weight:500;color:rgb(var(--mut));cursor:pointer;white-space:nowrap;transition:background .2s,color .2s}
+.tab:hover{color:rgb(var(--fg))}
+.tab[aria-selected=true]{background:var(--tab-active);color:rgb(var(--fg));box-shadow:0 1px 2px rgb(0 0 0 / .14), inset 0 0 0 1px var(--line)}
+.esc{height:1.75rem;padding:0 .55rem;border-radius:9999px;font-size:.78rem;font-weight:500;color:rgb(var(--mut));cursor:pointer;white-space:nowrap;transition:background .2s,color .2s}
+.esc:hover{color:rgb(var(--fg))}
+.esc[aria-checked=true]{background:var(--tab-active);color:rgb(var(--fg));box-shadow:0 1px 2px rgb(0 0 0 / .14), inset 0 0 0 1px var(--line)}
+.esc:focus-visible{outline:2px solid rgb(var(--indigo));outline-offset:2px}
+.bk-ind{display:inline-flex;align-items:center;gap:.35rem;height:2rem;padding:0 .55rem;border-radius:9999px;font-size:.7rem;color:rgb(var(--dim));cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.bk-ind:hover{background:rgb(var(--fg) / .07);color:rgb(var(--fg))}
+.bk-ind.warn{color:rgb(var(--amber))}
+.tab .lbl{display:none}
+.tab[aria-selected=true] .lbl{display:inline}
+@media (min-width:2100px){.tab .lbl{display:inline}}   /* com 10 abas, só telas largas mostram todos os nomes; nas demais só a aba atual mostra o nome (as outras têm dica ao passar o mouse) */
+.track{height:.5rem;border-radius:9999px;background:rgb(var(--fg) / .07);overflow:hidden}
+.fill{height:100%;border-radius:9999px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.rowh{transition:background .15s}
+.rowh:hover{background:rgb(var(--fg) / .04)}
+.scroll-thin::-webkit-scrollbar{height:8px;width:8px}
+.scroll-thin::-webkit-scrollbar-thumb{background:rgb(var(--fg) / .16);border-radius:9px}
+.fade-in{animation:fadeIn .3s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.fade-in{animation:none}.fill{transition:none}}
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+details[open] .chev{transform:rotate(180deg)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:200;transition:all .25s}
+#toast.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.chart-tip{position:absolute;pointer-events:none;z-index:5;min-width:13rem;opacity:0;transition:opacity .12s}
+.chart-tip.on{opacity:1}
+
+/* ───────── App em tela cheia (estilo desktop nativo) ───────── */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.app-main{flex:1 1 auto}
+@media (min-width:1024px) and (min-height:640px){
+  .app{height:100vh;min-height:0;overflow:hidden}
+  .app-main{flex:1 1 0;min-height:0;overflow:auto}
+  .fit-2rows{height:100%;grid-template-rows:auto minmax(0,1fr)}
+  .fit-3rows{height:100%;grid-template-rows:auto auto minmax(0,1fr)}
+  .fit-1row{height:100%;grid-template-rows:minmax(0,1fr)}
+}
+</style>
+<script src="seed.js"></script>
+</head>
+<body class="font-sans text-fg antialiased">
+
+<div id="app" class="app">
+  <header class="z-40 border-b border-line bg-s1/80 backdrop-blur-xl shrink-0">
+    <div class="w-full px-4 sm:px-5 2xl:px-6 py-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div class="flex items-center gap-2.5 shrink-0">
+        <div class="grid place-items-center w-8 h-8 rounded-[10px] bg-gradient-to-br from-indigo to-cyan text-[rgb(var(--on-accent))]"><i data-lucide="wallet" class="w-4 h-4"></i></div>
+        <span class="font-semibold tracking-tight">Orçamento</span>
+        <span id="seloTeste" class="hidden rounded-full px-2 py-0.5 text-[0.62rem] font-bold tracking-wider bg-amber/20 text-amber ring-1 ring-amber/40" title="Cópia de teste: dados separados da versão oficial">TESTE</span>
+      </div>
+      <nav id="tabs" role="tablist" aria-label="Seções" class="order-last w-full sm:order-none sm:w-auto sm:mx-auto inline-flex gap-0.5 p-1 rounded-full border border-line bg-fg/[0.04] overflow-x-auto scroll-thin"></nav>
+      <div class="ml-auto flex items-center gap-2">
+        <div class="flex items-center rounded-full border border-line bg-s1 p-0.5" role="group" aria-label="Mês de referência">
+          <button id="prev" type="button" class="ibtn" aria-label="Mês anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <label class="relative px-2 min-w-[8.5rem] text-center text-sm font-medium cursor-pointer select-none">
+            <span id="mesLabel"></span>
+            <input id="mes" type="month" aria-label="Escolher mês" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+          </label>
+          <button id="next" type="button" class="ibtn" aria-label="Próximo mês"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+        <div id="escopoSel" role="radiogroup" aria-label="Escopo do painel" class="inline-flex items-center rounded-full border border-line bg-s1 p-0.5" style="display:none"></div>
+        <button id="bkInd" type="button" class="bk-ind" style="display:none" title="Backup automático"></button>
+        <button id="hoje" type="button" class="btn hidden md:inline-flex">Hoje</button>
+        <button id="instalar" type="button" class="btn hidden" title="Instalar como aplicativo"><i data-lucide="download" class="w-4 h-4"></i><span class="hidden sm:inline">Instalar</span></button>
+        <button id="bloquear" type="button" class="ibtn border border-line" title="Bloquear agora" aria-label="Bloquear agora"><i data-lucide="lock" class="w-4 h-4"></i></button>
+        <button id="tema" type="button" class="ibtn border border-line"></button>
+      </div>
+    </div>
+  </header>
+  <main id="view" class="app-main p-4 sm:p-5 2xl:p-6"></main>
+</div>
+
+<div id="lock" class="hidden fixed inset-0 z-[100] items-center justify-center p-4 overflow-auto bg-bg"></div>
+<div id="toast" role="status" aria-live="polite" class="glass rounded-xl px-4 py-2.5 text-sm items-center gap-3 flex max-w-[calc(100vw-2rem)]"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ═════════════ Utilidades ═════════════ */
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 9);
+/* Categoria principal > subcategoria (padrão) */
+const CATS_PADRAO = () => ([
+  { nome:'Moradia', subs:['Aluguel','Energia (Luz)','Internet','Celular','Gás','Água','Manutenção / Pintura'] },
+  { nome:'Empresa / Profissional', subs:['Contabilidade','Impostos / DAS','Ferramentas / Software'] },
+  { nome:'Pensão / Família', subs:['Pensão','Dependentes'] },
+  { nome:'Transporte', subs:['Combustível','Aplicativos','Manutenção','Passagem de ônibus'] },
+  { nome:'Alimentação', subs:[] },
+  { nome:'Saúde', subs:['Plano de saúde','Benefício'] },
+  { nome:'Cartão de Crédito', subs:[] },
+  { nome:'Outros', subs:[] }
+]);
+const emptySeed = () => ({
+  version: 5,
+  params: { aliquota: 0.06, lag: 1, limAtencao: 0.7, limCritico: 0.9, impostoCat: 'Empresa / Profissional', impostoSub: 'Impostos / DAS' },
+  categorias: CATS_PADRAO(),
+  receitas: [], despesas: [], ajustes: [], pagos: {}
+});
+const SEED = () => { const s = (typeof window.__SEED === 'function' ? window.__SEED() : emptySeed()); migrar(s); return s; };
+const valid = s => s && typeof s==='object' && s.params && Array.isArray(s.categorias) && Array.isArray(s.receitas) && Array.isArray(s.despesas) && Array.isArray(s.ajustes);
+
+/* Migração: dados antigos (categorias em texto) -> categoria principal + subcategoria. Retorna true se alterou. */
+const normTxt = t => String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+const MAPA_DESC = {   // descrição (sem acento/maiúscula) -> [categoria, subcategoria]
+  'aluguel':['Moradia','Aluguel'], 'luz':['Moradia','Energia (Luz)'], 'energia':['Moradia','Energia (Luz)'], 'energia (luz)':['Moradia','Energia (Luz)'],
+  'internet':['Moradia','Internet'], 'gas':['Moradia','Gás'], 'agua':['Moradia','Água'],
+  'pintura':['Moradia','Manutenção / Pintura'],
+  'contabilidade':['Empresa / Profissional','Contabilidade'], 'pensao':['Pensão / Família','Pensão'],
+  'celular':['Moradia','Celular'],
+  'passagem':['Transporte','Passagem de ônibus']
+};
+const MAPA_CAT = {    // categoria antiga -> categoria nova
+  'moradia':'Moradia', 'contas de consumo':'Moradia', 'pensao / familia':'Pensão / Família', 'terreno / imovel':'Outros',
+  'transporte':'Transporte', 'alimentacao':'Alimentação', 'saude':'Saúde', 'cartao de credito':'Cartão de Crédito',
+  'impostos':'Empresa / Profissional', 'educacao':'Outros', 'lazer':'Outros', 'outros':'Outros', 'familia':'Pensão / Família', 'imovel':'Outros'
+};
+function migrar(s){
+  let mudou = false;
+  s.params = s.params || {};
+  if(!Array.isArray(s.categorias) || (s.categorias.length && typeof s.categorias[0]==='string')){
+    const antigas = (s.categorias||[]).filter(c=>typeof c==='string');
+    const novas = CATS_PADRAO();
+    for(const d of s.despesas){
+      const dn = normTxt(d.descricao), map = MAPA_DESC[dn];
+      if(map){ d.categoria = map[0]; d.sub = map[1]; continue; }
+      const alvo = MAPA_CAT[normTxt(d.categoria)];
+      if(alvo){ d.categoria = alvo; }
+      else { d.categoria = d.categoria || 'Outros'; if(!novas.some(c=>c.nome===d.categoria)) novas.push({ nome:d.categoria, subs:[] }); }
+      d.sub = d.sub || '';
+    }
+    for(const c of antigas){   // categorias personalizadas que o usuário criou e não têm correspondente
+      if(!MAPA_CAT[normTxt(c)] && !novas.some(n=>n.nome===c)) novas.push({ nome:c, subs:[] });
+    }
+    s.categorias = novas; mudou = true;
+  }
+  if(s.params.categoriaImposto!==undefined || !s.params.impostoCat){
+    delete s.params.categoriaImposto;
+    s.params.impostoCat = s.params.impostoCat || 'Empresa / Profissional';
+    s.params.impostoSub = s.params.impostoSub || 'Impostos / DAS';
+    mudou = true;
+  }
+  for(const d of s.despesas) if(d.sub===undefined){ d.sub = ''; mudou = true; }
+  if((s.version||0) < 3){
+    // v3: novas subcategorias (Passagem de ônibus; Plano de saúde / Benefício) e reclassificação só dos itens ainda sem subcategoria
+    const garante = (cat, sub) => { const c = s.categorias.find(x=>x.nome===cat); if(c && !c.subs.includes(sub)) c.subs.push(sub); };
+    garante('Transporte','Passagem de ônibus'); garante('Saúde','Plano de saúde'); garante('Saúde','Benefício');
+    for(const d of s.despesas){
+      const dn = normTxt(d.descricao);
+      if(dn==='passagem' && d.categoria==='Transporte' && !d.sub) d.sub = 'Passagem de ônibus';
+    }
+    s.version = 3; mudou = true;
+  }
+  if((s.version||0) < 4){
+    // v4: subcategoria Moradia › Celular; a despesa Celular sai de "Outros" (só se ainda estiver sem subcategoria)
+    const m = s.categorias.find(x=>x.nome==='Moradia');
+    if(m && !m.subs.includes('Celular')){ const i = m.subs.indexOf('Internet'); m.subs.splice(i>=0 ? i+1 : m.subs.length, 0, 'Celular'); }
+    for(const d of s.despesas){
+      if(normTxt(d.descricao)==='celular' && d.categoria==='Outros' && !d.sub && m){ d.categoria = 'Moradia'; d.sub = 'Celular'; }
+    }
+    s.version = 4; mudou = true;
+  }
+  if((s.version||0) < 5){
+    // v5: ajustes passam a ligar pelo ID da despesa (despesaId). Sem correspondência, o vínculo antigo pela descrição continua valendo (fallback).
+    for(const a of s.ajustes){
+      if(a.despesaId && s.despesas.some(d=>d.id===a.despesaId)) continue;
+      const d = s.despesas.find(x=>x.descricao===a.despesa) || s.despesas.find(x=>normTxt(x.descricao)===normTxt(a.despesa));
+      if(d) a.despesaId = d.id; else if(a.despesaId===undefined) a.despesaId = '';
+    }
+    s.version = 5; mudou = true;
+  }
+  if(!s.pagos || typeof s.pagos!=='object'){ s.pagos = {}; mudou = true; }   // checklist de pagamentos por mês
+  if((s.version||0) < 6){
+    // v6: Lista de compras, Reserva de emergência, Extrato bancário e Assistente de IA (campos novos; nada do que existia muda)
+    s.version = 6; mudou = true;
+  }
+  const g = (o,k,v) => { if(o[k]==null || typeof o[k]!==typeof v){ o[k] = v; mudou = true; } return o[k]; };   // garante a forma dos campos novos (também em backups importados)
+  if(!Array.isArray(s.compras)){ s.compras = []; mudou = true; }
+  const R = g(s,'reserva',{}); g(R,'saldo',0); g(R,'metaMeses',6); g(R,'custoRef',0); g(R,'aporte',0); if(!Array.isArray(R.historico)){ R.historico = []; mudou = true; }
+  const E = g(s,'extrato',{}); if(!Array.isArray(E.linhas)){ E.linhas = []; mudou = true; } if(!Array.isArray(E.arquivos)){ E.arquivos = []; mudou = true; } g(E,'regras',{});
+  const I = g(s,'ia',{}); g(I,'chave',''); g(I,'modelo','claude-sonnet-5-5'); g(I,'extrato','totais'); g(I,'falar',false);
+  g(I,'provedor', I.chave ? 'anthropic' : 'local');          // 'local' (grátis, neste computador) | 'gemini' | 'anthropic'
+  g(I,'modeloLocal',''); g(I,'urlLocal',''); g(I,'geminiChave',''); g(I,'geminiModelo','gemini-2.5-flash'); g(I,'avisoOk',false);
+  return mudou;
+}
+const catNomes = () => state.categorias.map(c=>c.nome);
+const subsDe = nome => { const c = state.categorias.find(c=>c.nome===nome); return c ? c.subs : []; };
+
+const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const MES_LONGO = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const mi = s => { if(!s || !/^\d{4}-\d{2}$/.test(s)) return null; const [y,m]=s.split('-').map(Number); return y*12+m-1; };
+const miStr = n => `${Math.floor(n/12)}-${String(n%12+1).padStart(2,'0')}`;
+const fmtMes = n => `${MES[n%12]}/${Math.floor(n/12)}`;
+const fmtMesCurto = n => `${MES[n%12]}/${String(Math.floor(n/12)).slice(2)}`;
+const fmtMesLongo = n => `${MES_LONGO[n%12]} de ${Math.floor(n/12)}`;
+const BRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const brl = v => BRL.format(Math.round((v||0)*100)/100 + 0);
+const pct = v => (v*100).toFixed(1).replace('.',',')+'%';
+const num = v => (v==null||v==='')?0:Number(v)||0;
+/* Precisão decimal: todo valor monetário do motor passa por round2 (2 casas) para eliminar erros de ponto flutuante. */
+const round2 = val => Math.round((val + Number.EPSILON) * 100) / 100;
+const sum = (a,f) => round2(a.reduce((t,x)=>t+f(x),0));
+
+function h(tag, a, ...kids){
+  const el = document.createElement(tag);
+  let props = null;
+  if(typeof a==='string'){
+    el.className = a;
+    const f = kids[0];
+    if(f && typeof f==='object' && !f.nodeType && !Array.isArray(f)) props = kids.shift();   // h('div','classes',{atributos}, ...filhos)
+  } else props = a;
+  for(const [k,v] of Object.entries(props||{})){
+    if(v==null || v===false) continue;
+    if(k==='class') el.className = v;
+    else if(k==='value') el.value = v;
+    else if(k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if(v===true) el.setAttribute(k,'');
+    else el.setAttribute(k,v);
+  }
+  for(const kid of kids.flat(Infinity)){
+    if(kid==null || kid===false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  }
+  return el;
+}
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, props, ...kids){
+  const el = document.createElementNS(SVGNS, tag);
+  for(const [k,v] of Object.entries(props||{})) if(v!=null) el.setAttribute(k,v);
+  for(const kid of kids.flat(Infinity)) if(kid!=null) el.append(kid.nodeType?kid:document.createTextNode(kid));
+  return el;
+}
+const ic = (name, cls='w-4 h-4') => h('i',{'data-lucide':name,class:cls});
+const icons = () => { try{ if(window.lucide) window.lucide.createIcons(); }catch(e){} };
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+const lsSet = (k,v) => { try{ localStorage.setItem(k,v); }catch(e){} };
+const lsDel = k => { try{ localStorage.removeItem(k); }catch(e){} };
+
+/* ═════════════ Segurança: senha, criptografia e recuperação ═════════════
+   • Os dados ficam criptografados (AES-256-GCM) no perfil local deste computador.
+   • A chave de dados é aleatória e fica "embrulhada" por duas chaves: uma derivada da SENHA e outra do CÓDIGO DE RECUPERAÇÃO
+     (PBKDF2-SHA256, 600 mil iterações). Sem a senha ou o código, os dados não podem ser abertos — nem por mim. */
+const K_AUTH='cf-auth-v1', K_DATA='cf-data-v1', K_LEGACY='controle-financeiro-v1', K_FAILS='cf-fails-v1', K_AUTOLOCK='cf-autolock', K_THEME='cf-theme';
+const ITER = 600000;
+const enc = new TextEncoder(), dec = new TextDecoder();
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+const b64 = buf => { const a = new Uint8Array(buf); let s=''; for(let i=0;i<a.length;i+=0x8000) s += String.fromCharCode.apply(null, a.subarray(i,i+0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+async function derive(secret, salt, iter=ITER){
+  const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function aesEnc(key, bytes){ const iv = rand(12); const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, bytes); return { iv:b64(iv), ct:b64(ct) }; }
+async function aesDec(key, o){ return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(o.iv)}, key, unb64(o.ct))); }
+const importDK = raw => crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+const ALFA = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
+const novoCodigo = () => { let s=''; for(const b of rand(20)) s += ALFA[b % ALFA.length]; return s.match(/.{5}/g).join('-'); };
+const normRec = c => String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+
+let state = null, dataKey = null;
+const getAuth = () => { try{ return JSON.parse(lsGet(K_AUTH)); }catch(e){ return null; } };
+
+async function criarConta(senha, estadoInicial){
+  const saltP = rand(16), saltR = rand(16), code = novoCodigo();
+  const kP = await derive(senha, saltP), kR = await derive(normRec(code), saltR);
+  const raw = rand(32);
+  dataKey = await importDK(raw);
+  lsSet(K_AUTH, JSON.stringify({ v:1, iter:ITER, saltP:b64(saltP), saltR:b64(saltR), wrapP:await aesEnc(kP, raw), wrapR:await aesEnc(kR, raw) }));
+  state = estadoInicial;
+  await persistNow();
+  return code;
+}
+async function carregarDados(){
+  const raw = lsGet(K_DATA);
+  if(!raw){ state = SEED(); await persistNow(); return; }
+  const s = JSON.parse(dec.decode(await aesDec(dataKey, JSON.parse(raw))));
+  if(!valid(s)) throw new Error('dados inválidos');
+  const mudou = migrar(s);
+  state = s;
+  if(mudou) await persistNow();     // grava já no formato novo (categoria > subcategoria)
+}
+async function destrancar(senha){
+  const auth = getAuth();
+  const kP = await derive(senha, unb64(auth.saltP), auth.iter);
+  const raw = await aesDec(kP, auth.wrapP);              // falha se a senha estiver errada
+  dataKey = await importDK(raw);
+  await carregarDados();
+}
+async function abrirComSenha(senha){ const auth = getAuth(); const kP = await derive(senha, unb64(auth.saltP), auth.iter); return { auth, raw: await aesDec(kP, auth.wrapP) }; }
+async function trocarSenha(atual, nova){
+  const { auth, raw } = await abrirComSenha(atual);
+  const saltP = rand(16), kP = await derive(nova, saltP, auth.iter);
+  auth.saltP = b64(saltP); auth.wrapP = await aesEnc(kP, raw);
+  lsSet(K_AUTH, JSON.stringify(auth));
+}
+async function gerarNovoCodigo(senha){
+  const { auth, raw } = await abrirComSenha(senha);
+  const code = novoCodigo(), saltR = rand(16), kR = await derive(normRec(code), saltR, auth.iter);
+  auth.saltR = b64(saltR); auth.wrapR = await aesEnc(kR, raw);
+  lsSet(K_AUTH, JSON.stringify(auth));
+  return code;
+}
+async function recuperar(codigo, novaSenha){
+  const auth = getAuth();
+  const kR = await derive(normRec(codigo), unb64(auth.saltR), auth.iter);
+  const raw = await aesDec(kR, auth.wrapR);              // falha se o código estiver errado
+  const saltP = rand(16), kP = await derive(novaSenha, saltP, auth.iter);
+  const code = novoCodigo(), saltR = rand(16), kR2 = await derive(normRec(code), saltR, auth.iter);
+  auth.saltP = b64(saltP); auth.wrapP = await aesEnc(kP, raw);
+  auth.saltR = b64(saltR); auth.wrapR = await aesEnc(kR2, raw);
+  lsSet(K_AUTH, JSON.stringify(auth));
+  dataKey = await importDK(raw);
+  await carregarDados();
+  return code;
+}
+
+/* Salvamento: criptografa e grava NA HORA (sem espera/debounce). Edições feitas durante uma gravação em andamento
+   são agrupadas numa gravação seguinte. O WebCrypto é assíncrono (não existe versão síncrona), então a gravação
+   começa no mesmo instante da edição e a janela de risco ao fechar a janela é de poucos milissegundos. */
+let dirty = false, gravando = false, saving = Promise.resolve();
+function save(){ if(!state || !dataKey) return; dirty = true; flushSave(); }
+function flushSave(){
+  if(gravando) return saving;
+  gravando = true;
+  saving = (async()=>{
+    try{
+      while(dirty && state && dataKey){
+        dirty = false;
+        const snap = JSON.stringify(state), key = dataKey;
+        lsSet(K_DATA, JSON.stringify(await aesEnc(key, enc.encode(snap))));
+        agendaBackupAuto();
+      }
+    }catch(e){} finally { gravando = false; }
+  })();
+  return saving;
+}
+const persistNow = () => { if(state && dataKey) dirty = true; return flushSave(); };
+// ao fechar/esconder a janela: qualquer gravação pendente é disparada imediatamente
+const flushAoSair = () => { if(dirty || gravando) flushSave(); };
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushAoSair(); });
+window.addEventListener('beforeunload', flushAoSair);
+window.addEventListener('pagehide', flushAoSair);
+/* Duas janelas do app abertas ao mesmo tempo: quando outra janela salva, esta recarrega os dados
+   (evita que uma sobrescreva a outra com informação antiga). */
+window.addEventListener('storage', async e=>{
+  if(e.key!==K_DATA || !e.newValue || !state || !dataKey) return;
+  try{
+    const s = JSON.parse(dec.decode(await aesDec(dataKey, JSON.parse(e.newValue))));
+    if(valid(s)){ dirty = false; state = s; render(); }
+  }catch(err){}
+});
+
+/* Tentativas erradas: espera crescente */
+const fails = () => { try{ return JSON.parse(lsGet(K_FAILS)||'{}'); }catch(e){ return {}; } };
+const esperaRestante = () => Math.max(0, (fails().until||0) - Date.now());
+function registraFalha(){ const f = fails(); const n=(f.n||0)+1; lsSet(K_FAILS, JSON.stringify({ n, until: n>=3 ? Date.now()+Math.min(60000, 1000*Math.pow(2,n-3)) : 0 })); }
+const limpaFalhas = () => lsDel(K_FAILS);
+
+/* Bloqueio automático por inatividade */
+let idleTimer = null;
+const autoLockMin = () => { const v = lsGet(K_AUTOLOCK); return v==null ? 15 : Number(v); };
+function armIdle(){ clearTimeout(idleTimer); const m = autoLockMin(); if(state && m>0) idleTimer = setTimeout(bloquear, m*60000); }
+['pointerdown','keydown','wheel','touchstart'].forEach(ev=>window.addEventListener(ev, ()=>{ if(state) armIdle(); }, {passive:true}));
+async function bloquear(){
+  clearTimeout(idleTimer);
+  await persistNow();
+  state = null; dataKey = null; afterRender.length = 0;
+  chat.length = 0; rascunhoIA = ''; try{ speechSynthesis.cancel(); }catch(e){}   // a conversa com a IA não sobrevive ao bloqueio
+  $('#view').replaceChildren(); closeModal();
+  showLock('unlock');
+}
+
+/* ═════════════ Regras de cálculo (idênticas às da planilha) ═════════════ */
+const recSpan = r => {
+  const s = mi(r.inicio); if(s==null) return null;
+  const e = r.tipo==='Única' ? s : mi(r.fim);
+  return { s, e: e==null ? null : e };
+};
+const despSpan = d => {
+  const s = mi(d.inicio); if(s==null) return null;
+  let e = null;
+  if(d.tipo==='Única') e = s;
+  else if(d.tipo==='Parcelada' && d.parcelas) e = s + Number(d.parcelas) - 1;
+  else e = mi(d.fim);
+  return { s, e: e==null ? null : e };
+};
+const active = (sp,m) => !!sp && sp.s<=m && (sp.e==null || m<=sp.e);
+const valorMesRec = (r,m) => (r.valor==null||r.valor==='') ? 0 : (active(recSpan(r),m) ? round2(num(r.valor)) : 0);
+const baseImposto = r => {
+  if(r.tributavel==='Não') return 0;
+  if(r.valor==null||r.valor==='') return 0;
+  return round2((r.nota==null||r.nota==='') ? num(r.valor) : num(r.nota));
+};
+const impostoGerado = (r,m) => valorMesRec(r,m)===0 ? 0 : round2(baseImposto(r)*state.params.aliquota);
+const firstDesp = nome => state.despesas.find(d=>d.descricao===nome);
+/* v5: o ajuste liga à despesa pelo ID (a.despesaId). Ajustes antigos sem ID válido caem no fallback pela descrição (a.despesa). */
+const despDoAjuste = a => (a.despesaId && state.despesas.find(d=>d.id===a.despesaId)) || (a.despesa ? firstDesp(a.despesa) : null) || null;
+function ajusteInfo(a){
+  const d = despDoAjuste(a);
+  const m = mi(a.mes);
+  const padrao = d ? round2(num(d.valor)) : 0;
+  const ativa = !!(d && m!=null && active(despSpan(d), m));
+  const temValor = !(a.valor==null||a.valor==='');
+  const dif = (temValor && ativa) ? round2(num(a.valor)-padrao) : 0;
+  return { padrao, ativa, dif, d };
+}
+const diffAjustes = (d,m) => sum(state.ajustes.filter(a=>mi(a.mes)===m && despDoAjuste(a)===d), a=>ajusteInfo(a).dif);
+const valorMes = (d,m) => {
+  const base = (d.valor==null||d.valor==='') ? 0 : (active(despSpan(d),m) ? num(d.valor) : 0);
+  return round2(base + diffAjustes(d,m));
+};
+/* Checklist de pagamento: state.pagos = { "YYYY-MM": ["id_despesa", "__imposto__", ...] } */
+const IMPOSTO_ID = '__imposto__';
+/* Backups (manual e automático) são arquivos SEM criptografia: a chave da IA nunca vai neles. */
+const estadoParaArquivo = () => Object.assign({}, state, { ia: Object.assign({}, state.ia, { chave: '', geminiChave: '' }) });
+const ehPago = (id, m) => !!(state.pagos && (state.pagos[miStr(m)]||[]).includes(id));
+function marcaPago(id, m, on){
+  state.pagos = state.pagos || {};
+  const k = miStr(m), l = new Set(state.pagos[k]||[]);
+  if(on) l.add(id); else l.delete(id);
+  if(l.size) state.pagos[k] = [...l]; else delete state.pagos[k];
+  save();
+  if(typeof render==='function' && tab!=='despesas') render(); else refreshPagamentosVisuais();
+}
+function refreshPagamentosVisuais(){ /* na aba Despesas o checkbox já reflete o estado; nada a redesenhar */ }
+/* resumo do mês (já no escopo do summary S): quanto do comprometido foi pago e quanto falta */
+function resumoPagamentos(S){
+  const itens = S.rows.filter(x=>x.v>0).map(x=>({ id:x.d.id, v:x.v }));
+  if(S.tax.imposto>0 && S.esc!=='pessoal') itens.push({ id:IMPOSTO_ID, v:S.tax.imposto });
+  const pagos = itens.filter(i=>ehPago(i.id, S.m));
+  const pago = sum(pagos, i=>i.v);
+  return { pago, falta: round2(Math.max(0, S.comprometido - pago)), n: itens.length, nPagas: pagos.length, pct: S.comprometido>0 ? Math.min(1, pago/S.comprometido) : 0 };
+}
+const mesesRestantes = (d,m) => { const sp = despSpan(d); if(!sp || sp.e==null) return null; return Math.max(0, sp.e - Math.max(sp.s, m+1) + 1); };
+const saldoFuturo = (d,m) => { const r = mesesRestantes(d,m); return (r==null||d.valor==null||d.valor==='') ? 0 : round2(r*num(d.valor)); };
+const parcelaLabel = (d,m) => {
+  if(d.tipo!=='Parcelada' || !d.parcelas) return '';
+  const sp = despSpan(d); if(!active(sp,m)) return '';
+  return `${m-sp.s+1}/${d.parcelas}`;
+};
+function taxInfo(m){
+  const P = state.params;
+  const ref = m - P.lag;
+  const recebido = sum(state.receitas, r=>valorMesRec(r,ref));
+  const nota = sum(state.receitas, r=>active(recSpan(r),ref) ? baseImposto(r) : 0);
+  return { ref, recebido, nota, fora: round2(recebido-nota), aliquota: P.aliquota, imposto: round2(nota*P.aliquota) };
+}
+const STATUS_TXT = {
+  ok:   { badge:'Saudável', frase:'Orçamento saudável' },
+  warn: { badge:'Atenção',  frase:'Atenção – orçamento apertado' },
+  bad:  { badge:'Crítico',  frase:'Crítico – pouca folga' },
+  none: { badge:'Sem dados',frase:'Cadastre receitas e despesas para começar' }
+};
+function status(receita, p){
+  const P = state.params;
+  if(!receita) return 'none';
+  if(p>=P.limCritico) return 'bad';
+  if(p>=P.limAtencao) return 'warn';
+  return 'ok';
+}
+const EMPRESA = 'Empresa / Profissional';
+const ESCOPOS = [['tudo','Tudo'],['pessoal','Pessoal'],['empresa','Empresa']];
+/* esc: 'tudo' (padrão) | 'pessoal' (sem a categoria Empresa / Profissional e sem o imposto)
+        | 'empresa' (só Empresa / Profissional + imposto; receita = valor da NOTA das receitas com nota) */
+function summary(m, esc='tudo'){
+  const P = state.params;
+  const noEscopo = d => esc==='tudo' || (esc==='empresa' ? d.categoria===EMPRESA : d.categoria!==EMPRESA);
+  const receita = sum(state.receitas, r=> esc==='empresa' ? (active(recSpan(r),m) ? baseImposto(r) : 0) : valorMesRec(r,m));
+  const desps = state.despesas.filter(noEscopo);
+  const rows = desps.map(d=>({ d, v: valorMes(d,m) }));
+  const porTipo = { Fixa:0, Parcelada:0, 'Única':0 };
+  // Categoria principal consolidada, com o detalhamento por subcategoria ('' = sem subcategoria)
+  const porCat = new Map(state.categorias.map(c=>[c.nome, { v:0, subs:new Map(c.subs.map(s=>[s,0])) }]));
+  const addCat = (cat, sub, v) => {
+    let e = porCat.get(cat);
+    if(!e){ e = { v:0, subs:new Map() }; porCat.set(cat, e); }
+    e.v = round2(e.v + v); const k = sub||''; e.subs.set(k, round2((e.subs.get(k)||0) + v));
+  };
+  for(const {d,v} of rows){
+    porTipo[d.tipo] = round2((porTipo[d.tipo]||0)+v);
+    addCat(d.categoria||'Outros', d.sub, v);
+  }
+  const tax0 = taxInfo(m);
+  const tax = esc==='pessoal' ? { ...tax0, imposto:0 } : tax0;
+  if(esc!=='pessoal') addCat(P.impostoCat, P.impostoSub, tax.imposto);
+  const desp = sum(rows, x=>x.v);
+  const comprometido = round2(desp + tax.imposto);
+  const p = receita ? comprometido/receita : null;
+  const fins = desps.filter(d=>d.tipo==='Parcelada').map(despSpan).filter(sp=>sp&&sp.e!=null).map(sp=>sp.e);
+  return {
+    m, esc, receita, rows, porTipo, porCat, tax, desp, comprometido, saldo: round2(receita-comprometido), p,
+    futuro: sum(desps, d=>saldoFuturo(d,m)),
+    ultima: fins.length ? Math.max(...fins) : null,
+    st: status(receita, p)
+  };
+}
+
+/* ═════════════ Estado de interface ═════════════ */
+const nowMonth = () => { const d=new Date(); return d.getFullYear()*12+d.getMonth(); };
+function defaultMonth(){
+  const cur = nowMonth();
+  if(state.receitas.some(r=>active(recSpan(r),cur))) return cur;
+  const starts = state.receitas.map(r=>mi(r.inicio)).filter(x=>x!=null);
+  return starts.length ? Math.min(...starts) : cur;
+}
+let month = nowMonth();
+let tab = 'painel';
+const TABS = [
+  ['painel','Painel','layout-dashboard'],
+  ['projecao','Projeção','trending-up'],
+  ['receitas','Receitas','arrow-down-left'],
+  ['despesas','Despesas','arrow-up-right'],
+  ['ajustes','Ajustes','sliders-horizontal'],
+  ['compras','Compras','shopping-cart'],
+  ['reserva','Reserva','piggy-bank'],
+  ['extrato','Extrato','receipt-text'],
+  ['ia','Assistente','sparkles'],
+  ['config','Configurações','settings']
+];
+const afterRender = [];
+
+let toastTimer;
+function toast(msg, label, fn){
+  const el = $('#toast');
+  el.replaceChildren(h('span','',msg));
+  if(label) el.append(h('button','font-semibold underline underline-offset-4 decoration-fg/40 hover:decoration-fg',{type:'button',onclick:()=>{ fn(); el.classList.remove('show'); }}, label));
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 6000);
+}
+
+const TONE = {
+  ok:   { text:'text-mint',  bg:'bg-mint/10',  ring:'ring-mint/25',  a:'--mint',  b:'--cyan'  },
+  warn: { text:'text-amber', bg:'bg-amber/10', ring:'ring-amber/25', a:'--amber', b:'--amber' },
+  bad:  { text:'text-coral', bg:'bg-coral/10', ring:'ring-coral/25', a:'--amber', b:'--coral' },
+  none: { text:'text-mut',   bg:'bg-fg/5',     ring:'ring-fg/10',    a:'--dim',   b:'--mut'   }
+};
+
+/* ═════════════ Componentes ═════════════ */
+function moneyParts(v){
+  const n = Math.round((v||0)*100)/100;
+  const [i,c] = Math.abs(n).toFixed(2).split('.');
+  return { neg:n<0, int:i.replace(/\B(?=(\d{3})+(?!\d))/g,'.'), cents:c };
+}
+function heroMoney(v, cls){
+  const p = moneyParts(v);
+  return h('div',`num leading-none ${cls}`,
+    p.neg ? '−' : '',
+    h('span','text-[.34em] mr-2 text-mut font-medium tracking-normal','R$'),
+    p.int,
+    h('span','text-[.5em] text-mut font-medium -ml-[.12em]',','+p.cents));
+}
+function pill(k, text){
+  const t = TONE[k];
+  return h('span',`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${t.bg} ${t.text} ${t.ring}`,
+    ic(k==='bad'||k==='warn'?'triangle-alert':k==='ok'?'circle-check':'info','w-3.5 h-3.5'), text);
+}
+function cardTitle(icon, title, right){
+  return h('div','flex items-center justify-between gap-3 mb-2.5 shrink-0',
+    h('div','flex items-center gap-2 text-[0.8125rem] font-semibold text-mut', ic(icon,'w-4 h-4 text-dim'), title),
+    right||null);
+}
+/* Linha única: [nome] [barra fina] [valor + selo %]  (colunas fixas => barras alinhadas entre as linhas) */
+function lineRow(label, value, receita, from, to, dim, opt={}){
+  const w = receita>0 ? Math.max(0, Math.min(100, value/receita*100)) : 0;
+  const titulo = opt.title || `${typeof label==='string'?label:''}: ${brl(value)}`;
+  return h('div',`rowh grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)_9.7rem] items-center gap-3 px-1.5 rounded-md min-h-0 ${dim?'opacity-60':''}`,{title:titulo},
+    h('div',`flex items-center gap-1 min-w-0 ${opt.indent?'pl-1':''}`,
+      typeof label==='string' ? h('span',`truncate text-[0.8125rem] ${opt.sub?'text-mut':'text-fg/90'}`,label) : label),
+    h('div','track', h('div','fill',{style:`width:${w}%;background:linear-gradient(90deg, rgb(var(${from}) / .55), rgb(var(${to})))`})),
+    h('span','grid grid-cols-[1fr_3.2rem] items-center gap-1.5',
+      h('span',`num text-[0.8125rem] ${opt.sub?'text-mut':'font-medium'} text-right`, brl(value)),
+      h('span','num text-[0.6875rem] px-1 py-0.5 rounded bg-fg/[0.06] text-mut text-center', receita>0?pct(value/receita):'—')));
+}
+/* ═════════════ PAINEL (tela fixa) ═════════════ */
+function gauge(S){
+  const P = state.params, T = TONE[S.st];
+  const SIZE = 232, c = SIZE/2, r = 88, sw = 14;
+  const C = 2*Math.PI*r, L = C*0.75;
+  const p = S.p==null ? 0 : Math.min(S.p,1);
+  const gid = 'gg'+Math.random().toString(36).slice(2,6);
+  const svg = sv('svg',{viewBox:`0 6 ${SIZE} 196`,class:'w-full h-full',preserveAspectRatio:'xMidYMid meet',role:'img','aria-label':`Comprometimento: ${S.p==null?'indisponível':pct(S.p)}`});
+  svg.append(sv('defs',{},
+    sv('linearGradient',{id:gid,x1:'0',y1:'1',x2:'1',y2:'0'},
+      sv('stop',{offset:'0%',style:`stop-color:rgb(var(${T.a}))`}),
+      sv('stop',{offset:'100%',style:`stop-color:rgb(var(${T.b}))`}))));
+  const rot = `rotate(135 ${c} ${c})`;
+  svg.append(sv('circle',{cx:c,cy:c,r,fill:'none','stroke-width':sw,'stroke-linecap':'round',style:'stroke:rgb(var(--fg) / .08)','stroke-dasharray':`${L} ${C}`,transform:rot}));
+  if(p>0) svg.append(sv('circle',{cx:c,cy:c,r,fill:'none',stroke:`url(#${gid})`,'stroke-width':sw,'stroke-linecap':'round','stroke-dasharray':`${L*p} ${C}`,transform:rot}));
+  for(const f of [P.limAtencao,P.limCritico]){
+    const g = sv('g',{transform:`rotate(${135 + 270*f} ${c} ${c})`});
+    g.append(sv('line',{x1:c+r+sw/2+3,y1:c,x2:c+r+sw/2+9,y2:c,style:'stroke:rgb(var(--fg) / .5)','stroke-width':1.6,'stroke-linecap':'round'}));
+    svg.append(g);
+  }
+  svg.append(sv('text',{x:c,y:c+8,'text-anchor':'middle',style:'font-size:46px;font-weight:600;fill:rgb(var(--fg));letter-spacing:-.03em;font-variant-numeric:tabular-nums'}, S.p==null?'n/d':pct(S.p)),
+    sv('text',{x:c,y:c+31,'text-anchor':'middle',style:'font-size:12px;fill:rgb(var(--mut))'}, 'da receita comprometida'));
+  return svg;
+}
+
+function kpiCell(icon, label, value, sub, cls=''){
+  return h('div',`flex flex-col justify-center px-4 py-2 min-w-0 ${cls}`,
+    h('div','flex items-center gap-1.5 text-[0.72rem] text-dim font-medium', ic(icon,'w-3.5 h-3.5'), label),
+    h('div','num text-[1.2rem] font-semibold mt-0.5 truncate leading-tight', value),
+    sub ? h('div','text-[0.7rem] text-dim truncate', sub) : null);
+}
+
+function parcPills(k, n){
+  if(!n) return null;
+  if(n>24) return h('div','track !h-1.5 flex-1', h('div','fill',{style:`width:${k/n*100}%;background:rgb(var(--indigo))`}));
+  return h('div','flex gap-1 flex-1', Array.from({length:n},(_,i)=>
+    h('span',`h-2.5 flex-1 rounded-full ${i<k?'bg-indigo':'bg-fg/[0.07] ring-1 ring-inset ring-line'}`,{title:i<k?`Parcela ${i+1}: paga/atual`:`Parcela ${i+1}: futura`})));
+}
+
+function miniProjecao(esc='tudo'){
+  const rows = Array.from({length:6},(_,i)=>summary(month+i, esc));
+  const max = (Math.max(...rows.map(r=>Math.max(r.receita,r.comprometido))) * 1.06) || 1;
+  const cols = rows.map(r=>{
+    const parc = r.porTipo.Parcelada||0, fix = r.desp - parc, imp = r.tax.imposto;
+    const T = TONE[r.st];
+    const seg = (v,bg) => v>0 ? h('div','w-full',{style:`flex:${v} 1 0;min-height:1px;background:${bg}`}) : null;
+    return h('div','flex flex-col min-h-0 min-w-0 h-full',{title:`${fmtMesLongo(r.m)} — comprometido ${brl(r.comprometido)} de ${brl(r.receita)} (${r.p==null?'n/d':pct(r.p)})`},
+      h('div',`num text-[0.7rem] text-center font-semibold ${T.text}`, r.p==null?'–':pct(r.p)),
+      h('div','relative flex-1 min-h-0 mt-1',
+        h('div','absolute inset-x-[18%] bottom-0 flex flex-col-reverse rounded-t-md overflow-hidden',{style:`height:${r.comprometido/max*100}%`},
+          seg(fix,'rgb(var(--indigo))'), seg(parc,'rgb(var(--indigo) / .42)'), seg(imp,'rgb(var(--amber))')),
+        r.receita>0 ? h('div','absolute inset-x-[4%] border-t-2 border-dashed border-income',{style:`bottom:${r.receita/max*100}%`}) : null),
+      h('div','text-center text-[0.68rem] text-dim mt-1 font-medium', fmtMesCurto(r.m)));
+  });
+  return h('div','grid grid-cols-6 gap-1.5 flex-1 min-h-0', cols);
+}
+
+const expandidas = new Set();   // categorias abertas no painel (clique)
+let scrollCat = 0;
+let escopo = lsGet('cf-escopo'); if(!ESCOPOS.some(e=>e[0]===escopo)) escopo = 'tudo';   // Painel: tudo | pessoal | empresa
+const rotuloEscopo = () => (ESCOPOS.find(e=>e[0]===escopo)||[,''])[1];
+
+/* ═════════════ INSIGHTS AUTOMÁTICOS (regras fixas: instantâneos, sem IA e sem internet) ═════════════
+   Cada regra olha os dados do app e devolve uma frase com tom (bad/warn/info/ok) e peso; o Painel mostra os mais importantes. */
+function gerarInsights(m, esc='tudo'){
+  const P = state.params, S = summary(m, esc), out = [];
+  const add = (tom, icone, texto, peso) => out.push({ tom, icone, texto, peso });
+  const hoje = new Date(), mesHoje = nowMonth(), ehMesAtual = m === mesHoje;
+  /* 1 · folga do mês */
+  if(!S.receita) add('info','info',`Sem receita cadastrada em ${fmtMes(m)}: cadastre as receitas para ver o comprometimento.`,50);
+  else if(S.saldo < 0) add('bad','triangle-alert',`As contas de ${fmtMes(m)} passam da receita em ${brl(-S.saldo)}.`,110);
+  else if(S.p >= P.limCritico) add('bad','triangle-alert',`${fmtMes(m)}: ${pct(S.p)} da receita comprometida, acima do limite crítico (${pct(P.limCritico)}). Sobram só ${brl(S.saldo)}.`,100);
+  else if(S.p >= P.limAtencao) add('warn','triangle-alert',`${fmtMes(m)}: ${pct(S.p)} da receita comprometida, acima do limite de atenção (${pct(P.limAtencao)}). Sobram ${brl(S.saldo)}.`,70);
+  else add('ok','circle-check',`${fmtMes(m)} está dentro do saudável: ${pct(S.p)} comprometido, sobram ${brl(S.saldo)}.`,10);
+  /* 2 · mês mais apertado à frente */
+  const prox = Array.from({length:6},(_,i)=>summary(m+1+i, esc)).filter(x=>x.receita>0);
+  const pior = prox.slice().sort((a,b)=>b.p-a.p)[0];
+  if(pior && pior.p >= P.limAtencao && !(S.p>=pior.p)) add(pior.saldo<0?'bad':pior.p>=P.limCritico?'warn':'info','calendar-clock',`O mês mais apertado dos próximos 6 é ${fmtMes(pior.m)}: ${pct(pior.p)} comprometido, sobram ${brl(pior.saldo)}.`,80);
+  /* 3 · parcelas que acabam */
+  for(const {d,v} of S.rows){
+    if(d.tipo!=='Parcelada' || v===0) continue;
+    const sp = despSpan(d); if(!sp || sp.e==null) continue;
+    const resta = sp.e - m;
+    if(resta===0) add('info','calendar-check',`Última parcela de ${d.descricao||'(sem descrição)'} é em ${fmtMes(m)} (${brl(v)}). A partir de ${fmtMes(m+1)} libera ${brl(v)} por mês.`,60);
+    else if(resta>0 && resta<=3) add('info','calendar-check',`${d.descricao||'(sem descrição)'}: faltam ${resta} parcelas (a última é em ${fmtMes(sp.e)}). Depois libera ${brl(v)} por mês.`,50);
+  }
+  if(S.ultima!=null && S.ultima>m){
+    const depois = summary(S.ultima+1, esc);
+    if(depois.receita>0) add('ok','sparkles',`Quando a última parcela acabar (${fmtMes(S.ultima)}), a sobra mensal passa para ${brl(depois.saldo)}.`,30);
+  }
+  /* 4 · vencimentos (só no mês atual; usa o dia de vencimento e o checklist "Pago") */
+  if(ehMesAtual){
+    const hd = hoje.getDate(), ultDia = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).getDate();
+    const venc = S.rows.filter(x=>x.d.dia && x.v>0 && !ehPago(x.d.id, m)).map(x=>({ ...x, due:Math.min(+x.d.dia, ultDia) })).sort((a,b)=>a.due-b.due);
+    const atrasadas = venc.filter(x=>x.due<hd), proximas = venc.filter(x=>x.due>=hd && x.due-hd<=7);
+    if(atrasadas.length) add('bad','alarm-clock',`Venceu e não está marcada como paga: ${atrasadas.slice(0,3).map(x=>`${x.d.descricao||'conta'} (dia ${x.due})`).join(', ')}${atrasadas.length>3?` e mais ${atrasadas.length-3}`:''}.`,95);
+    for(const x of proximas.slice(0,3)) add('warn','alarm-clock', x.due===hd ? `${x.d.descricao||'Conta'} vence hoje (${brl(x.v)}).` : `${x.d.descricao||'Conta'} vence em ${x.due-hd} dia${x.due-hd===1?'':'s'} (dia ${x.due}): ${brl(x.v)}.`, 90-(x.due-hd));
+    const pg = resumoPagamentos(S);
+    if(pg.n>0 && pg.falta>0 && !venc.length) add('info','hourglass',`Faltam pagar ${brl(pg.falta)} em ${pg.n-pg.nPagas} conta${pg.n-pg.nPagas===1?'':'s'} deste mês.`,20);
+  }
+  /* 5 · reserva de emergência */
+  const ri = reservaInfo();
+  if(!ri.R.historico.length) add('info','piggy-bank','Informe quanto você tem guardado na aba Reserva para acompanhar sua reserva de emergência.',25);
+  else if(ri.cobertura < 1) add('warn','piggy-bank',`Sua reserva cobre só ${fmtMeses(ri.cobertura)} mês de despesas (meta: ${ri.metaMeses}). Faltam ${brl(ri.falta)}.`,65);
+  else if(ri.falta > 0) add('info','piggy-bank',`Sua reserva cobre ${fmtMeses(ri.cobertura)} meses de despesas (meta: ${ri.metaMeses}). Faltam ${brl(ri.falta)}.`,35);
+  else add('ok','piggy-bank',`Reserva de emergência na meta: cobre ${fmtMeses(ri.cobertura)} meses de despesas.`,12);
+  /* 6 · lista de compras */
+  const pend = state.compras.filter(c=>c.status!=='Comprado' && num(c.valor)>0 && mi(c.mes)!=null);
+  const naoCabe = pend.map(c=>({ c, r:compraCabe(c) })).filter(x=>x.r && !x.r.ok).sort((a,b)=>(PRIO[a.c.prioridade]??1)-(PRIO[b.c.prioridade]??1))[0];
+  if(naoCabe) add('warn','shopping-cart',`${naoCabe.c.item||'Item'} (${brl(naoCabe.c.valor)}) em ${fmtMes(mi(naoCabe.c.mes))} não cabe na sobra do mês: faltam ${brl(-naoCabe.r.sobra)}.`,55);
+  else if(pend.length) add('ok','shopping-cart',`${pend.length} ite${pend.length===1?'m':'ns'} da lista de compras ${pend.length===1?'cabe':'cabem'} na sobra dos meses planejados.`,15);
+  /* 7 · extrato: onde o gasto real passou do planejado */
+  const ls = linhasDoMes(m);
+  if(ls.length){
+    const real = new Map(); for(const l of ls){ const g = gastoDe(l); if(g) real.set(l.cat, round2((real.get(l.cat)||0)+g)); }
+    const dif = [...real.entries()].map(([c,r])=>({ c, r, p:(S.porCat.get(c)||{v:0}).v })).map(x=>({ ...x, d:round2(x.r-x.p) })).sort((a,b)=>b.d-a.d)[0];
+    if(dif && dif.d > 50) add('warn','receipt-text',`Extrato de ${fmtMes(m)}: ${dif.c} teve ${brl(dif.r)} de gasto real contra ${brl(dif.p)} planejado (${brl(dif.d)} a mais).`,65);
+  }
+  return out.sort((a,b)=>b.peso-a.peso);
+}
+function insightsCard(){
+  const lista = gerarInsights(month, escopo).slice(0,6);
+  const COR = { bad:'text-coral bg-coral/10', warn:'text-amber bg-amber/10', info:'text-mut bg-fg/[0.06]', ok:'text-mint bg-mint/10' };
+  return h('section','glass rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden flex-[1.15]',
+    cardTitle('lightbulb','Insights', h('button','text-[0.7rem] text-dim hover:text-fg inline-flex items-center gap-1',{type:'button',title:'Perguntar ao assistente de IA',onclick:()=>{ tab='ia'; animarEntrada = true; render(); }}, ic('sparkles','w-3 h-3'),'Perguntar à IA')),
+    h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-2', lista.map(i=>
+      h('div','flex items-start gap-2.5',{title:i.texto},
+        h('span',`mt-0.5 shrink-0 w-6 h-6 rounded-full grid place-items-center ${COR[i.tom]}`, ic(i.icone,'w-3.5 h-3.5')),
+        h('span','text-[0.78rem] leading-snug text-fg/90', i.texto)))));
+}
+
+function viewPainel(){
+  const S = summary(month, escopo), Sn = summary(month+1, escopo), P = state.params, T = TONE[S.st], T2 = S.tax, pg = resumoPagamentos(S);
+  const root = h('div','grid grid-cols-1 lg:grid-cols-12 gap-4 fit-2rows fade-in [&>*]:min-w-0');
+
+  /* Linha 1 · herói */
+  const totalRef = Math.max(S.receita, S.comprometido);
+  const segs = [
+    ['Fixas', S.porTipo.Fixa||0, '--indigo', 1],
+    ['Parceladas', S.porTipo.Parcelada||0, '--indigo', .45],
+    ['Únicas', S.porTipo['Única']||0, '--dim', 1],
+    ['Imposto', S.tax.imposto, '--amber', 1],
+    ['Livre', Math.max(0,S.saldo), '--mint', 1]
+  ].filter(s=>s[1]>0);
+  root.append(h('section','glass rounded-2xl p-5 lg:col-span-5 overflow-hidden flex flex-col',
+    h('div','flex items-start justify-between gap-4',
+      h('div','',
+        h('div','eyebrow','Saldo livre · '+fmtMesLongo(month)+(escopo!=='tudo'?' · '+rotuloEscopo():'')),
+        h('div','mt-2.5', heroMoney(S.saldo, `text-[3.1rem] font-semibold ${S.saldo>=0?'text-mint':'text-coral'}`))),
+      pill(S.st, STATUS_TXT[S.st].badge)),
+    h('p','mt-2.5 text-[0.8125rem] text-mut',
+      S.receita>0 ? `Sobra depois de ${brl(S.comprometido)} comprometidos da receita de ${brl(S.receita)}.` : 'Nenhuma receita cadastrada para este mês.'),
+    h('div','mt-auto pt-4',
+      h('div','flex gap-[3px] h-3',
+        segs.length ? segs.map(([l,v,c,o])=>h('div','h-full rounded-[4px] first:rounded-l-full last:rounded-r-full',{title:`${l}: ${brl(v)}`,style:`flex:${v/totalRef} 1 0;background:rgb(var(${c}) / ${o})`})) : h('div','h-full w-full rounded-full bg-fg/[0.07]')),
+      h('div','mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.72rem]',
+        segs.map(([l,v,c,o])=>h('div','flex items-center gap-1.5 text-mut',
+          h('span','w-2 h-2 rounded-full',{style:`background:rgb(var(${c}) / ${o})`}), l,
+          h('span','num text-fg font-medium', brl(v))))))));
+
+  /* Linha 1 · medidor */
+  root.append(h('section','glass rounded-2xl p-4 lg:col-span-3 overflow-hidden flex flex-col',
+    h('div','eyebrow','Comprometimento'),
+    h('div','flex-1 min-h-[6rem] max-h-[10.5rem] my-1', gauge(S)),
+    h('div','text-center shrink-0',
+      h('div',`text-[0.8125rem] font-semibold ${T.text}`, STATUS_TXT[S.st].frase),
+      h('div','mt-1 flex justify-center gap-3 text-[0.68rem] text-dim',
+        h('span','',`atenção ≥ `,h('span','num text-mut font-medium',pct(P.limAtencao))),
+        h('span','',`crítico ≥ `,h('span','num text-mut font-medium',pct(P.limCritico)))))));
+
+  /* Linha 1 · KPIs unificados num único container */
+  root.append(h('section','glass rounded-2xl lg:col-span-4 overflow-hidden grid grid-cols-2 grid-rows-3',
+    kpiCell('arrow-down-left', escopo==='empresa'?'Receita (valor das notas)':'Receita do mês', brl(S.receita), null, 'border-r border-b border-hair'),
+    kpiCell('arrow-up-right','Total comprometido', brl(S.comprometido), `${brl(S.desp)} + imposto ${brl(T2.imposto)}`, 'border-b border-hair'),
+    kpiCell('calendar-clock','Contas do próximo mês', brl(Sn.comprometido), `já reservado para ${fmtMes(month+1)}`, 'border-r border-b border-hair'),
+    kpiCell('calendar-check','Última parcela', S.ultima==null?'–':fmtMes(S.ultima), 'Entre os parcelamentos', 'border-b border-hair'),
+    kpiCell('circle-check','Já pago', brl(pg.pago), pg.n ? `${pg.nPagas} de ${pg.n} contas · ${Math.round(pg.pct*100)}%` : 'nenhuma conta no mês', 'border-r border-hair kpi-pago'),
+    kpiCell('hourglass','Falta pagar', brl(pg.falta), pg.n ? `${pg.n-pg.nPagas} conta${pg.n-pg.nPagas===1?'':'s'} em aberto` : '—', 'kpi-falta')));
+
+  /* Linha 2 · por tipo (Fixa / Parcelada) + maiores gastos do mês */
+  const tipos = [
+    ['Contas fixas', S.porTipo.Fixa||0, '--indigo','--indigo'],
+    ['Contas parceladas', S.porTipo.Parcelada||0, '--indigo','--cyan']
+  ];
+  if((S.porTipo['Única']||0) > 0) tipos.push(['Contas únicas', S.porTipo['Única'], '--dim','--mut']);   // só aparece quando existe alguma despesa única
+  const itens = S.rows.filter(x=>x.v>0).map(x=>({ n:x.d.descricao||'(sem descrição)', v:x.v }));
+  if(S.tax.imposto>0) itens.push({ n:'Imposto s/ nota', v:S.tax.imposto });
+  const maiores = itens.sort((a,b)=>b.v-a.v).slice(0,6);
+  root.append(h('div','lg:col-span-4 flex flex-col gap-4 min-h-0 [&>*]:min-w-0', insightsCard(), h('section','glass rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden flex-1',
+    cardTitle('flame','Maiores gastos do mês'),
+    maiores.length
+      ? h('div','flex-1 min-h-0 overflow-hidden flex flex-col gap-1.5 [&>*]:shrink-0', maiores.map(x=>lineRow(x.n, x.v, S.receita, '--indigo','--cyan')))   // se faltar altura, só os menores ficam de fora (nunca se sobrepõem)
+      : h('div','flex-1 grid place-items-center text-sm text-dim','Sem gastos neste mês.'))));
+
+  /* Linha 2 · por categoria PRINCIPAL (consolidada) — clique para ver as subcategorias */
+  const cats = [...S.porCat.entries()].map(([nome,e])=>({ nome, e })).sort((a,b)=>b.e.v-a.e.v);
+  const lista = h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-0.5');
+  lista.scrollTop = scrollCat;
+  lista.addEventListener('scroll', ()=>{ scrollCat = lista.scrollTop; }, {passive:true});
+  cats.forEach(({nome, e})=>{
+    const subs = [...e.subs.entries()].filter(([,v])=>v!==0).sort((a,b)=>b[1]-a[1]);
+    const pode = subs.length>0, abre = pode && expandidas.has(nome);
+    const dica = pode ? `${nome}: ${brl(e.v)}\n` + subs.map(([s,v])=>`• ${s||'Geral'}: ${brl(v)}`).join('\n') + '\n(clique para expandir)' : `${nome}: ${brl(e.v)}`;
+    // seta e nome ficam em elementos próprios para animar sem recriar a tela
+    const seta = pode ? h('span','inline-grid shrink-0 text-dim transition-transform duration-300 ease-out',{style:`transform:rotate(${abre?90:0}deg)`}, ic('chevron-right','w-3.5 h-3.5')) : h('span','w-3.5 shrink-0');
+    const nomeEl = h('span',`truncate text-[0.8125rem] transition-[font-weight] ${abre?'font-semibold':'text-fg/90'}`, nome);
+    // detalhamento: abre/fecha deslizando a altura (0fr -> 1fr), sem trocar nenhum elemento da tela
+    const subsWrap = pode ? h('div','grid transition-[grid-template-rows] duration-300 ease-out',{style:`grid-template-rows:${abre?'1fr':'0fr'}`},
+      h('div','overflow-hidden min-h-0',
+        h('div','ml-3 mt-0.5 mb-1.5 pl-2.5 border-l border-hair flex flex-col gap-0.5',
+          subs.map(([s,v])=>lineRow(s||'Geral', v, S.receita, '--indigo','--indigo', false, { sub:true, indent:true }))))) : null;
+    if(subsWrap && !abre) subsWrap.inert = true;
+    const cab = h('div',`shrink-0 select-none ${pode?'cursor-pointer':''}`,
+      pode ? {role:'button',tabindex:'0','aria-expanded':String(abre)} : {},
+      lineRow(h('span','flex items-center gap-1 min-w-0', seta, nomeEl), e.v, S.receita, '--indigo','--cyan', e.v===0, { title:dica }));
+    if(pode){
+      const alternar = () => {
+        const abrir = !expandidas.has(nome);
+        if(abrir) expandidas.add(nome); else expandidas.delete(nome);
+        subsWrap.style.gridTemplateRows = abrir ? '1fr' : '0fr';
+        subsWrap.inert = !abrir;
+        seta.style.transform = `rotate(${abrir?90:0}deg)`;
+        nomeEl.classList.toggle('font-semibold', abrir); nomeEl.classList.toggle('text-fg/90', !abrir);
+        cab.setAttribute('aria-expanded', String(abrir));
+      };
+      cab.addEventListener('click', alternar);
+      cab.addEventListener('keydown', ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); alternar(); } });
+    }
+    lista.append(h('div','shrink-0', cab, subsWrap));
+  });
+  root.append(h('section','glass rounded-2xl p-4 lg:col-span-4 flex flex-col min-h-0 overflow-hidden',
+    cardTitle('tags','Por categoria', h('span','num text-xs text-dim font-medium', brl(S.comprometido))),
+    lista));
+
+  /* Linha 2 · coluna direita: parcelamentos + projeção de 6 meses */
+  const parc = S.rows.filter(x=>x.v!==0 && x.d.tipo==='Parcelada');
+  const parcCard = h('section','glass rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden flex-[1.15]',
+    cardTitle('credit-card','Parcelamentos ativos', parc.length?h('span','num text-xs text-dim font-medium',`${brl(sum(parc,x=>x.v))}/mês · saldo ${brl(S.futuro)}`):null),
+    parc.length
+      ? h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-3', parc.map(({d,v})=>{
+          const sp = despSpan(d), n = d.parcelas||0, k = sp && n ? Math.min(n, month-sp.s+1) : 0;
+          return h('div','',
+            h('div','flex items-baseline justify-between gap-3',
+              h('div','min-w-0', h('span','text-[0.8125rem] font-medium',d.descricao), h('span','text-[0.72rem] text-dim ml-2',[d.categoria,d.sub].filter(Boolean).join(' › '))),
+              h('span','num text-[0.8125rem] font-semibold shrink-0',brl(v))),
+            h('div','mt-1.5 flex items-center gap-2.5',
+              parcPills(k,n),
+              h('span','num text-[0.7rem] text-mut whitespace-nowrap font-medium', n?`${k}/${n}`:'')),
+            h('div','mt-1 flex justify-between text-[0.7rem] text-dim',
+              h('span','',`restam ${mesesRestantes(d,month)??'–'}`), h('span','',`saldo `,h('span','num text-mut',brl(saldoFuturo(d,month))))));
+        }))
+      : h('div','flex-1 grid place-items-center text-sm text-dim','Nenhum parcelamento ativo neste mês.'));
+  const projCard = h('section','glass rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden flex-1',
+    cardTitle('bar-chart-3','Projeção dos próximos 6 meses',
+      h('div','hidden min-[1700px]:flex items-center gap-2.5 text-[0.66rem] text-dim',
+        h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--indigo))'}),'Fixas'),
+        h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--indigo) / .42)'}),'Parc.'),
+        h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--amber))'}),'Imp.'),
+        h('span','flex items-center gap-1',h('i','w-3 border-t-2 border-dashed border-income'),'Receita'))),
+    miniProjecao(escopo));
+  root.append(h('div','lg:col-span-4 flex flex-col gap-4 min-h-0', parcCard, projCard));
+
+  return root;
+}
+
+/* ═════════════ PROJEÇÃO (12 meses) — matriz de fluxo futuro ═════════════ */
+/* Simulador de nova compra — só simulação: NADA é gravado em state/localStorage.
+   valor = valor de CADA parcela (igual ao cadastro de despesas); 1 parcela = compra à vista num mês. */
+const sim = { valor:'', parcelas:'', inicio:'' };
+const simAtivo = () => num(sim.valor) > 0;
+function simExtra(m){
+  if(!simAtivo()) return 0;
+  const n = Math.max(1, Math.min(600, Math.round(num(sim.parcelas)) || 1));
+  const ini = mi(sim.inicio);
+  if(ini==null || m<ini || m>=ini+n) return 0;
+  return round2(num(sim.valor));
+}
+function simPonto(p){
+  const extra = simExtra(p.m), c = round2(p.comprometido + extra), pp = p.receita>0 ? c/p.receita : null;
+  return { extra, c, p:pp, st:status(p.receita, pp), saldo:round2(p.saldo - extra) };
+}
+
+function viewProjecao(){
+  const proj = Array.from({length:12},(_,i)=>summary(month+i));
+  const S0 = proj[0];
+  const media = sum(proj,p=>p.comprometido)/12;
+  const recMedia = sum(proj,p=>p.receita)/12;
+  const comP = proj.filter(p=>p.p!=null);
+  const aperto = comP.length ? comP.reduce((a,b)=>b.p>a.p?b:a) : null;
+  const parcMes = S0.porTipo.Parcelada||0;
+  const fimParc = S0.ultima;                         // último mês com parcela (entre todos os parcelamentos)
+  const saldoAcum = sum(proj,p=>p.saldo);
+
+  // meses em que algum parcelamento termina
+  const fins = new Map();
+  state.despesas.filter(d=>d.tipo==='Parcelada').forEach(d=>{
+    const sp = despSpan(d); if(!sp || sp.e==null) return;
+    if(!fins.has(sp.e)) fins.set(sp.e, []);
+    fins.get(sp.e).push(d.descricao);
+  });
+
+  /* Topo: 4 KPIs em linha */
+  const kpis = h('section','glass rounded-2xl lg:col-span-12 overflow-hidden grid grid-cols-2 lg:grid-cols-4',
+    kpiCell('gauge','Média de gastos (12 meses)', brl(media), recMedia>0 ? `${pct(media/recMedia)} da receita média` : '—', 'border-r border-b lg:border-b-0 border-hair'),
+    kpiCell('flame','Mês mais apertado', aperto ? fmtMes(aperto.m) : '–', aperto ? `${pct(aperto.p)} comprometido · saldo ${brl(aperto.saldo)}` : '—', 'border-b lg:border-b-0 lg:border-r border-hair'),
+    kpiCell('piggy-bank','Economia após fim das parcelas', parcMes>0 ? `${brl(parcMes)}/mês` : '–', fimParc!=null && parcMes>0 ? `a partir de ${fmtMes(fimParc+1)}` : 'sem parcelas ativas', 'border-r border-hair'),
+    kpiCell('wallet','Saldo livre acumulado (12m)', brl(saldoAcum), `média de ${brl(saldoAcum/12)} por mês`, ''));
+
+  /* Simulador de nova compra (topo): painel compacto de uma linha; o gráfico e a matriz são redesenhados no lugar */
+  if(!mi(sim.inicio)) sim.inicio = miStr(month+1);
+  const maxSim = () => Math.max(...proj.map(p=>Math.max(p.receita, p.comprometido + simExtra(p.m))), 1) * 1.04;
+  const seg = (v,bg) => v>0 ? h('div','w-full',{style:`flex:${v} 1 0;min-height:1px;background:${bg}`}) : null;
+
+  function mkColunas(){
+    const maxV = maxSim(), ativo = simAtivo() && proj.some(p=>simExtra(p.m)>0);   // sem mês afetado, não desenha a linha
+    const pts = proj.map(simPonto);
+    const yPct = i => pts[i].c / maxV * 100;                           // altura (% a partir da base) do nível "com a compra"
+    return proj.map((p,i)=>{
+      const parc = p.porTipo.Parcelada||0, fix = p.comprometido-parc, livre = Math.max(0,p.saldo);
+      const estouro = p.receita>0 && p.comprometido>p.receita;
+      const fimN = fins.get(p.m), sp = pts[i], afeta = ativo && sp.extra>0;
+      let linhaSim = null, ponto = null;
+      if(ativo){
+        const yc = 100 - yPct(i);
+        const yl = i>0 ? 100 - (yPct(i-1)+yPct(i))/2 : yc, yr = i<11 ? 100 - (yPct(i+1)+yPct(i))/2 : yc;
+        linhaSim = sv('svg',{viewBox:'0 0 100 100',preserveAspectRatio:'none',class:'absolute pointer-events-none',
+          style:'left:-0.1875rem;top:0;height:100%;width:calc(100% + 0.375rem);overflow:visible','aria-hidden':'true'},
+          sv('polyline',{points:`0,${yl.toFixed(2)} 50,${yc.toFixed(2)} 100,${yr.toFixed(2)}`,fill:'none',stroke:'rgb(var(--fg))','stroke-width':'2','stroke-dasharray':'5 4','stroke-linejoin':'round','stroke-linecap':'round','vector-effect':'non-scaling-stroke',opacity:'.92'}));
+        if(afeta) ponto = h('span','absolute w-2 h-2 rounded-full pointer-events-none',{style:`left:50%;bottom:${yPct(i).toFixed(2)}%;transform:translate(-50%,50%);background:rgb(var(--fg));box-shadow:0 0 0 2px rgb(var(--bg))`});
+      }
+      const mostra = afeta ? sp : p;
+      return h('div','flex flex-col min-w-0 min-h-0 h-full',
+        {title:`${fmtMesLongo(p.m)}\nReceita ${brl(p.receita)}\nFixas (inclui únicas e imposto) ${brl(fix)}\nParcelas ${brl(parc)}\nSaldo livre ${brl(p.saldo)}\n${p.p==null?'':pct(p.p)+' comprometido'}${afeta?`\nCom a compra: ${brl(sp.c)} (${sp.p==null?'n/d':pct(sp.p)}) · saldo ${brl(sp.saldo)}`:''}${fimN?'\nFim: '+fimN.join(', '):''}`},
+        h('div',`num text-[0.62rem] text-center font-semibold ${TONE[mostra.st].text}`, mostra.p==null?'–':Math.round(mostra.p*100)+'%'),
+        h('div','relative flex-1 min-h-0 mt-1',
+          h('div',`absolute inset-x-[12%] bottom-0 flex flex-col-reverse rounded-md overflow-hidden ${estouro?'ring-1 ring-coral':''}`,{style:`height:${Math.max(p.receita,p.comprometido)/maxV*100}%`},
+            seg(fix,'rgb(var(--indigo))'), seg(parc,'rgb(var(--indigo) / .42)'), seg(livre,'rgb(var(--mint) / .85)')),
+          linhaSim, ponto),
+        h('div','text-center text-[0.62rem] text-dim mt-1 font-medium', MES[p.m%12]),
+        fimN ? h('div','mx-auto w-1.5 h-1.5 rounded-full bg-amber mt-0.5',{title:`Fim: ${fimN.join(', ')}`}) : h('div','h-2'));
+    });
+  }
+
+  /* Corpo · direita: tabela de 12 meses com mini-barras */
+  const ult = fimParc;
+  const COLS = 'grid-cols-[3.4rem_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.5fr)]';
+  function mkLinhas(){
+    const ativo = simAtivo();
+    return proj.map((p,i)=>{
+      const parc = p.porTipo.Parcelada||0, fimN = fins.get(p.m), quitou = ult!=null && p.m===ult+1;
+      const sp = simPonto(p), afeta = ativo && sp.extra>0;
+      const T = TONE[p.st], T2s = TONE[sp.st];
+      const destaque = afeta ? 'bg-fg/[0.06] ring-1 ring-inset ring-fg/25' : fimN ? 'bg-amber/[0.09] ring-1 ring-inset ring-amber/30' : quitou ? 'bg-income/[0.08] ring-1 ring-inset ring-income/25' : '';
+      const w = p.p==null ? 0 : Math.min(p.p,1)*100;
+      const wSim = sp.p==null ? 0 : Math.min(sp.p,1)*100;
+      return h('div',`rowh grid ${COLS} items-center gap-3 px-3 rounded-lg min-h-0 ${destaque}`,
+        h('div',`num text-[0.8rem] ${i===0?'font-semibold':'text-mut'}`, fmtMesCurto(p.m)),
+        h('div','num text-[0.8125rem] text-right', afeta ? h('span','',brl(sp.c)) : brl(p.comprometido)),
+        h('div','flex items-center gap-2 min-w-0',
+          h('div','track flex-1 !h-2 relative',
+            h('div','fill',{style:`width:${w}%;background:linear-gradient(90deg, rgb(var(${T.a}) / .55), rgb(var(${T.b})))`}),
+            afeta ? h('span','absolute top-[-2px] bottom-[-2px] border-r-2 border-dashed',{style:`left:${wSim}%;border-color:rgb(var(--fg))`}) : null),
+          afeta ? h('span',`num text-[0.68rem] shrink-0 text-right font-semibold whitespace-nowrap ${T2s.text}`, (p.p==null?'–':Math.round(p.p*100)+'%')+' → '+(sp.p==null?'–':Math.round(sp.p*100)+'%'))
+                : h('span',`num text-[0.7rem] w-10 text-right font-semibold ${T.text}`, p.p==null?'–':pct(p.p))),
+        h('div',`num text-[0.8125rem] text-right ${(afeta?sp.saldo:p.saldo)<0?'text-coral font-semibold':''}`, brl(afeta ? sp.saldo : p.saldo)),
+        h('div','flex items-center gap-1.5 min-w-0',
+          h('span','num text-[0.72rem] text-dim shrink-0', parc>0?brl(parc):'—'),
+          afeta ? h('span','truncate rounded-full px-1.5 py-0.5 text-[0.64rem] font-semibold bg-fg/10 text-fg',{title:'Nova compra simulada: +'+brl(sp.extra)},'+ '+brl(sp.extra)+' simulada') : null,
+          fimN ? h('span','truncate rounded-full px-1.5 py-0.5 text-[0.64rem] font-semibold bg-amber/15 text-amber',{title:'Fim: '+fimN.join(', ')},'Fim · '+fimN.join(', '))
+               : quitou ? h('span','truncate rounded-full px-1.5 py-0.5 text-[0.64rem] font-semibold bg-income/15 text-income','Parcelas quitadas') : null));
+    });
+  }
+
+  const gridCols = h('div','grid grid-cols-12 gap-1.5 flex-1 min-h-[12rem]');
+  const linhasBox = h('div','flex-1 min-h-0 grid gap-0.5',{style:'grid-template-rows:repeat(12,minmax(0,1fr))'});
+  const legSim = h('span','flex items-center gap-1.5',h('i','inline-block w-4 border-t-2 border-dashed',{style:'border-color:rgb(var(--fg))'}),'Com a compra');
+  const resumoEl = h('div','text-[0.72rem] text-dim flex-1 min-w-[16rem]');
+  const btnLimpar = h('button','btn !h-8',{type:'button',onclick:()=>{ sim.valor=''; sim.parcelas=''; sim.inicio=miStr(month+1); vIn.value=''; nIn.value=''; mIn.value=sim.inicio; desenha(); }}, ic('eraser','w-4 h-4'),'Limpar');
+
+  function textoResumo(){
+    if(!simAtivo()) return 'Preencha o valor para ver quanto uma nova compra pesaria nos próximos 12 meses. Nada é salvo.';
+    const pts = proj.map(simPonto), afetados = pts.filter(x=>x.extra>0).length;
+    if(!afetados) return 'Esse início fica fora da janela de 12 meses exibida (ou o valor é zero).';
+    const comAntes = proj.filter(p=>p.p!=null), comDepois = pts.filter(x=>x.p!=null);
+    const picoA = comAntes.length ? Math.max(...comAntes.map(p=>p.p)) : null;
+    const iD = comDepois.length ? pts.reduce((b,x,i)=> x.p!=null && (b<0 || x.p>pts[b].p) ? i : b, -1) : -1;
+    const extraTot = sum(pts,x=>x.extra), n = Math.max(1, Math.round(num(sim.parcelas)) || 1);
+    const neg = pts.filter((x,i)=>x.saldo<0 && proj[i].saldo>=0).length;
+    const partes = [];
+    if(picoA!=null && iD>=0) partes.push(`Pico de comprometimento ${pct(picoA)} → ${pct(pts[iD].p)} (${fmtMesCurto(proj[iD].m)})`);
+    partes.push(`Saldo livre acumulado (12m) ${brl(saldoAcum)} → ${brl(round2(saldoAcum-extraTot))}`);
+    if(neg>0) partes.push(`${neg} ${neg>1?'meses':'mês'} a mais no vermelho`);
+    partes.push(`Total da compra ${brl(round2(num(sim.valor)*n))} em ${n}×`);
+    return partes.join(' · ');
+  }
+  function desenha(){
+    gridCols.replaceChildren(...mkColunas());
+    linhasBox.replaceChildren(...mkLinhas());
+    legSim.style.display = simAtivo() ? '' : 'none';
+    btnLimpar.style.visibility = (sim.valor!=='' || sim.parcelas!=='') ? '' : 'hidden';
+    resumoEl.textContent = textoResumo();
+    resumoEl.className = 'text-[0.72rem] flex-1 min-w-[16rem] ' + (simAtivo() ? 'text-fg' : 'text-dim');
+  }
+  const campo = (rotulo, input) => h('label','flex items-center gap-1.5 text-[0.72rem] text-dim shrink-0', rotulo, input);
+  const vIn = h('input','fld',{type:'number',min:'0',step:'0.01',inputmode:'decimal',placeholder:'0,00',value:sim.valor,'aria-label':'Valor de cada parcela da nova compra',style:'width:7rem;height:2rem',
+    oninput:e=>{ sim.valor = e.target.value; desenha(); }});
+  const nIn = h('input','fld',{type:'number',min:'1',max:'600',step:'1',inputmode:'numeric',placeholder:'1',value:sim.parcelas,'aria-label':'Número de parcelas',style:'width:4.5rem;height:2rem',
+    oninput:e=>{ sim.parcelas = e.target.value; desenha(); }});
+  const mIn = h('input','fld',{type:'month',value:sim.inicio,'aria-label':'Mês de início da compra',style:'width:11.25rem;height:2rem',
+    oninput:e=>{ if(mi(e.target.value)!=null){ sim.inicio = e.target.value; desenha(); } }});
+  const simBar = h('section','glass rounded-2xl lg:col-span-12 px-4 py-2 flex flex-wrap items-center gap-x-4 gap-y-2',
+    h('div','flex items-center gap-2 text-[0.8125rem] font-semibold text-mut shrink-0', ic('shopping-cart','w-4 h-4 text-dim'),'Simular nova compra'),
+    campo('Valor da parcela', vIn), campo('Parcelas', nIn), campo('Início', mIn), btnLimpar, resumoEl);
+
+  const grafico = h('section','glass rounded-2xl p-4 lg:col-span-5 flex flex-col min-h-0 overflow-hidden',
+    cardTitle('bar-chart-3','Fluxo mês a mês'),
+    h('div','flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.68rem] text-dim mb-2 shrink-0',
+      h('span','flex items-center gap-1.5',h('i','w-2.5 h-2.5 rounded-sm',{style:'background:rgb(var(--indigo))'}),'Fixas'),
+      h('span','flex items-center gap-1.5',h('i','w-2.5 h-2.5 rounded-sm',{style:'background:rgb(var(--indigo) / .42)'}),'Parcelas'),
+      h('span','flex items-center gap-1.5',h('i','w-2.5 h-2.5 rounded-sm',{style:'background:rgb(var(--mint) / .85)'}),'Saldo livre'),
+      h('span','flex items-center gap-1.5',h('i','w-1.5 h-1.5 rounded-full bg-amber'),'Fim de parcela'),
+      legSim),
+    gridCols,
+    h('p','mt-2 text-[0.68rem] text-dim shrink-0','Fixas inclui despesas únicas e o imposto sobre nota. O % no topo é o comprometimento do mês.'));
+
+  const cab = h('div',`grid ${COLS} items-center gap-3 px-3 pb-1.5 shrink-0`,
+    ['Mês','Comprometido','Comprometimento','Saldo livre','Parcelas / evento'].map((t,i)=>h('div',`eyebrow ${i===1||i===3?'text-right':''}`,t)));
+  const tabela = h('section','glass rounded-2xl p-4 lg:col-span-7 flex flex-col min-h-0 overflow-hidden',
+    cardTitle('table-2','Matriz de fluxo futuro', h('span','text-xs text-dim', fmtMes(proj[0].m)+' → '+fmtMes(proj[11].m))),
+    cab, linhasBox);
+
+  desenha();
+  return h('div','grid grid-cols-1 lg:grid-cols-12 gap-4 fit-3rows fade-in [&>*]:min-w-0', kpis, simBar, grafico, tabela);
+}
+
+/* ═════════════ RECEITAS ═════════════ */
+const REC_PILL = {
+  rec:  'bg-income/10 text-income ring-income/25',
+  prev: 'bg-indigo/10 text-indigo ring-indigo/25',
+  fora: 'bg-fg/5 text-dim ring-fg/10'
+};
+const pad2 = n => String(n).padStart(2,'0');
+function recStatus(r, m){
+  const sp = recSpan(r);
+  if(active(sp,m)) return m<=nowMonth() ? { k:'rec', t:'Recebido' } : { k:'prev', t:'Previsto' };
+  if(sp && m<sp.s) return { k:'fora', t:`Começa ${fmtMes(sp.s)}` };
+  return { k:'fora', t:'Encerrada' };
+}
+
+function taxCard(m){
+  const P = state.params;
+  const recM = sum(state.receitas, r=>valorMesRec(r,m));
+  const nota = sum(state.receitas, r=>active(recSpan(r),m) ? baseImposto(r) : 0);
+  const gerado = nota*P.aliquota, venc = m + P.lag;
+  const T = taxInfo(m);
+  const linha = (k,v,cls='') => h('div','flex items-baseline justify-between gap-3 py-1.5 border-b border-hair last:border-0', h('dt','text-[0.8125rem] text-dim',k), h('dd',`num text-[0.8125rem] font-medium text-right ${cls}`,v));
+  return h('section','glass rounded-2xl p-4 flex flex-col shrink-0',
+    cardTitle('landmark','Cálculo de imposto sobre nota', h('span','num text-[0.72rem] font-semibold rounded-full px-2 py-0.5 bg-amber/10 text-amber ring-1 ring-amber/25', `Alíquota ${pct(P.aliquota)}`)),
+    h('dl','shrink-0',
+      linha('Nota de referência', fmtMesLongo(m)),
+      linha('Total recebido no mês', brl(recM)),
+      linha('Base de cálculo (valor da nota)', brl(nota)),
+      linha('Fora da base (isento / sem nota)', brl(recM-nota)),
+      linha('Alíquota', pct(P.aliquota)),
+      linha('Imposto gerado neste mês', brl(gerado), 'text-amber')),
+    h('div','mt-3 rounded-xl bg-amber/10 ring-1 ring-amber/25 p-3 flex items-center justify-between gap-3',
+      h('div','min-w-0', h('div','text-[0.8125rem] font-semibold', `Imposto a pagar em ${fmtMes(venc)}`), h('div','text-[0.7rem] text-dim', `vence ${P.lag} mês(es) após o recebimento`)),
+      h('div','num text-[1.35rem] font-semibold text-amber shrink-0', brl(gerado))),
+    h('div','mt-3 pt-3 border-t border-hair flex items-center justify-between gap-3 text-[0.78rem]',
+      h('div','text-dim min-w-0', h('div','',`Neste mês (${fmtMes(m)}) você paga`), h('div','text-[0.68rem]',`referente à nota de ${fmtMes(T.ref)}`)),
+      h('div','num font-semibold', brl(T.imposto))));
+}
+
+function modalReceita(r){
+  const novo = !r;
+  const o = r ? { ...r } : { id:uid(), descricao:'', origem:'', tipo:'Recorrente', valor:null, nota:null, tributavel:'Sim', dia:null, inicio:miStr(month), fim:'' };
+  const campo = (lbl, el, dica) => h('label','block', h('span','block text-xs text-mut mb-1.5 font-medium',lbl), el, dica?h('span','block text-[0.68rem] text-dim mt-1',dica):null);
+  const inp = (tipo, v, extra={}) => h('input','fld',{type:tipo, value:v==null?'':v, ...extra});
+  const sel = (opts, v) => { const s = h('select','fld',opts.map(x=>h('option',{value:x},x))); s.value = v; return s; };
+  const fDesc = inp('text', o.descricao, {placeholder:'Ex.: Salário, Serviço para cliente X'});
+  const fOrig = inp('text', o.origem, {placeholder:'Ex.: Empregador, Cliente, Benefício'});
+  const fTipo = sel(['Recorrente','Única'], o.tipo);
+  const fValor = inp('number', o.valor, {step:'0.01', inputmode:'decimal', placeholder:'0,00'});
+  const fNota = inp('number', o.nota, {step:'0.01', inputmode:'decimal', placeholder:'= valor'});
+  const fTrib = sel(['Sim','Não'], o.tributavel);
+  const fDia = inp('number', o.dia, {min:'1', max:'31', step:'1', placeholder:'opcional'});
+  const fIni = inp('month', o.inicio);
+  const fFim = inp('month', o.fim);
+  const ajustaFim = () => { fFim.disabled = fTipo.value==='Única'; };
+  fTipo.addEventListener('change', ajustaFim); ajustaFim();
+  const err = h('p','text-sm text-coral min-h-[1.25rem]',{role:'alert'});
+  const salvar = e => {
+    e.preventDefault(); err.textContent = '';
+    if(!fDesc.value.trim()) return err.textContent = 'Informe a descrição.';
+    if(fValor.value==='' || !isFinite(Number(fValor.value))) return err.textContent = 'Informe o valor.';
+    if(!mi(fIni.value)) return err.textContent = 'Informe o mês de início.';
+    Object.assign(o, { descricao:fDesc.value.trim(), origem:fOrig.value.trim(), tipo:fTipo.value, valor:Number(fValor.value),
+      nota: fNota.value===''?null:Number(fNota.value), tributavel:fTrib.value, dia: fDia.value===''?null:Math.min(31,Math.max(1,Math.round(Number(fDia.value)))),
+      inicio:fIni.value, fim: fTipo.value==='Única'?'':fIni.value && fFim.value ? fFim.value : '' });
+    if(novo) state.receitas.push(o); else Object.assign(r, o);
+    save(); closeModal(); render(); toast(novo?'Receita registrada.':'Receita atualizada.');
+  };
+  openModal([novo?'Nova receita':'Editar receita','max-w-xl'],
+    h('form','space-y-3.5',{onsubmit:salvar},
+      h('div','grid sm:grid-cols-2 gap-3.5',
+        campo('Descrição', fDesc), campo('Origem', fOrig),
+        campo('Tipo', fTipo), campo('Dia do recebimento', fDia, 'Opcional — só para exibir a data.'),
+        campo('Valor recebido (R$)', fValor), campo('Valor da nota (R$)', fNota, 'Base do imposto. Em branco = tudo faturado.'),
+        campo('Incide imposto?', fTrib), h('div'),
+        campo('Mês de início', fIni), campo('Mês de fim', fFim, 'Em branco = continua todo mês.')),
+      err,
+      h('div','flex gap-2 justify-end pt-1',
+        h('button','btn',{type:'button',onclick:closeModal},'Cancelar'),
+        h('button','btn btn-primary',{type:'submit'}, novo?'Registrar receita':'Salvar'))));
+}
+
+function viewReceitas(){
+  const m = month, P = state.params;
+  const totalM = sum(state.receitas, r=>valorMesRec(r,m));
+  const totalProx = sum(state.receitas, r=>valorMesRec(r,m+1));
+  const impM = sum(state.receitas, r=>impostoGerado(r,m));
+  const nAtivas = state.receitas.filter(r=>active(recSpan(r),m)).length;
+  const passado = m<=nowMonth();
+  const delta = totalProx - totalM;
+  const kpi = (icone,label,valor,sub,cor) => h('div','glass rounded-2xl p-4 min-w-0',
+    h('div','flex items-center gap-1.5 text-[0.75rem] text-dim font-medium', ic(icone,'w-3.5 h-3.5'), label),
+    h('div',`num text-[1.5rem] font-semibold mt-1.5 truncate ${cor||''}`, valor),
+    h('div','text-[0.72rem] text-dim mt-0.5 truncate', sub));
+
+  const cabKpis = h('div','grid grid-cols-1 sm:grid-cols-3 gap-4 shrink-0',
+    kpi('arrow-down-left', passado?'Total recebido no mês':'Total previsto no mês', brl(totalM), `${nAtivas} lançamento(s) em ${fmtMes(m)}`, 'text-income'),
+    kpi('calendar-clock','Previsão do próximo mês', brl(totalProx), delta===0 ? `igual a ${fmtMes(m)}` : `${delta>0?'+':'−'}${brl(Math.abs(delta))} vs ${fmtMes(m)}`),
+    kpi('landmark', passado?'Impostos retidos no mês':'Impostos previstos no mês', brl(impM), `a pagar em ${fmtMes(m+P.lag)} (${pct(P.aliquota)} s/ nota)`, 'text-amber'));
+
+  const colsGrid = 'grid-cols-[minmax(0,1.7fr)_6.4rem_4.4rem_7.4rem_8rem_4.4rem]';
+  const itens = [...state.receitas].sort((a,b)=>(active(recSpan(b),m)?1:0)-(active(recSpan(a),m)?1:0));
+  const linhas = itens.map(r=>{
+    const st = recStatus(r,m), ativa = active(recSpan(r),m), tributa = r.tributavel!=='Não';
+    return h('div',`rowh grid ${colsGrid} items-center gap-3 px-4 py-2.5 ${ativa?'':'opacity-60'}`,
+      h('div','flex items-center gap-3 min-w-0',
+        h('div','grid place-items-center w-8 h-8 rounded-lg bg-income/10 text-income shrink-0', ic('arrow-down-left','w-4 h-4')),
+        h('div','min-w-0',
+          h('div','text-[0.875rem] font-medium truncate', r.descricao||'(sem descrição)'),
+          h('div','text-[0.72rem] text-dim truncate', [r.origem||'Origem não informada', r.tipo].join(' · ')))),
+      h('span',`inline-flex justify-center rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ring-1 whitespace-nowrap ${REC_PILL[st.k]}`, st.t),
+      h('span','num text-[0.78rem] text-mut text-right', ativa ? (r.dia ? `${pad2(r.dia)}/${pad2(m%12+1)}` : fmtMesCurto(m)) : '—'),
+      h('span','num text-[0.9rem] font-semibold text-right', brl(r.valor)),
+      tributa
+        ? h('div','text-right', h('div','num text-[0.78rem] text-amber font-medium', ativa?brl(impostoGerado(r,m)):'—'), h('div','text-[0.66rem] text-dim', `Incide ${pct(P.aliquota)}`))
+        : h('div','text-right text-[0.72rem] text-dim','Isenta de imposto'),
+      h('div','flex justify-end gap-0.5',
+        h('button','ibtn',{type:'button',title:'Editar','aria-label':'Editar receita',onclick:()=>modalReceita(r)}, ic('pencil','w-4 h-4')),
+        h('button','ibtn hover:!text-coral',{type:'button',title:'Remover','aria-label':'Remover receita',onclick:()=>removeRow('receitas',r)}, ic('trash-2','w-4 h-4'))));
+  });
+  const cabLista = h('div',`grid ${colsGrid} items-center gap-3 px-4 py-2 border-b border-hair shrink-0`,
+    ['Lançamento','Status','Data','Valor','Imposto',''].map((t,i)=>h('div',`eyebrow ${i>=2&&i<=4?'text-right':''} ${i===1?'text-center':''}`,t)));
+  const lista = h('section','glass rounded-2xl flex flex-col min-h-[9rem] shrink overflow-hidden',
+    h('div','flex items-center justify-between gap-3 px-4 pt-4 pb-3 shrink-0',
+      h('div','flex items-center gap-2 text-[0.8125rem] font-semibold text-mut', ic('list','w-4 h-4 text-dim'), 'Lançamentos de receita', h('span','num text-xs text-dim font-normal',`${state.receitas.length}`)),
+      h('button','btn btn-primary !h-8 !text-[0.78rem]',{type:'button',onclick:()=>modalReceita(null)}, ic('plus','w-3.5 h-3.5'),'Nova receita')),
+    cabLista,
+    linhas.length
+      ? h('div','flex-1 min-h-0 overflow-y-auto scroll-thin divide-y divide-hair', linhas)
+      : h('div','flex-1 grid place-items-center text-center p-6',
+          h('div','',h('div','text-sm font-medium','Nenhuma receita cadastrada'),h('div','text-xs text-dim mt-1','Registre salários, serviços e benefícios para calcular o orçamento.'),
+            h('button','btn btn-primary mt-3',{type:'button',onclick:()=>modalReceita(null)}, ic('plus','w-4 h-4'),'Registrar receita'))));
+
+  const acao = h('section','glass rounded-2xl p-3 shrink-0',
+    h('button','btn btn-primary w-full !h-11',{type:'button',onclick:()=>modalReceita(null)}, ic('plus','w-4 h-4'),'Registrar nova receita'),
+    h('p','text-[0.7rem] text-dim text-center mt-2','Painel, projeção e imposto se atualizam sozinhos.'));
+
+  /* Previsão de receita: próximos 6 meses */
+  const prev6 = Array.from({length:6},(_,i)=>({ m:m+i, v:sum(state.receitas,r=>valorMesRec(r,m+i)), imp:sum(state.receitas,r=>impostoGerado(r,m+i)) }));
+  const maxPrev = Math.max(...prev6.map(x=>x.v), 1) * 1.05;
+  const previsao = h('section','glass rounded-2xl p-4 flex flex-col flex-1 min-h-[11rem] overflow-hidden',
+    cardTitle('bar-chart-3','Receita prevista · próximos 6 meses', h('span','num text-xs text-dim font-medium', brl(sum(prev6,x=>x.v)))),
+    h('div','grid grid-cols-6 gap-3 flex-1 min-h-0', prev6.map((x,i)=>
+      h('div','flex flex-col min-h-0 min-w-0 h-full',{title:`${fmtMesLongo(x.m)}: ${brl(x.v)} · imposto gerado ${brl(x.imp)}`},
+        h('div','num text-[0.72rem] text-center font-semibold truncate', x.v>0 ? brl(x.v).replace('R$ ','') : '–'),
+        h('div','relative flex-1 min-h-0 mt-1',
+          h('div','absolute inset-x-[16%] bottom-0 rounded-t-md',{style:`height:${x.v/maxPrev*100}%;background:linear-gradient(180deg, rgb(var(--income)), rgb(var(--income) / .55))`})),
+        h('div',`text-center text-[0.68rem] mt-1 font-medium ${i===0?'text-fg':'text-dim'}`, fmtMesCurto(x.m))))));
+
+  /* Composição da receita do mês */
+  const ativas = state.receitas.filter(r=>active(recSpan(r),m));
+  const composicao = h('section','glass rounded-2xl p-4 flex flex-col flex-1 min-h-0 overflow-hidden',
+    cardTitle('wallet','Composição da receita', h('span','num text-xs text-dim font-medium', fmtMes(m))),
+    ativas.length
+      ? h('div','flex-1 min-h-0 overflow-y-auto scroll-thin flex flex-col gap-3', ativas.map(r=>{
+          const v = valorMesRec(r,m), share = totalM>0 ? v/totalM : 0, trib = r.tributavel!=='Não';
+          return h('div','',
+            h('div','flex items-baseline justify-between gap-2 text-[0.8125rem]', h('span','truncate font-medium', r.descricao||'(sem descrição)'), h('span','num text-mut shrink-0', brl(v))),
+            h('div','mt-1 flex items-center gap-2',
+              h('div','track flex-1 !h-1.5', h('div','fill',{style:`width:${share*100}%;background:${trib?'linear-gradient(90deg, rgb(var(--indigo) / .55), rgb(var(--indigo)))':'rgb(var(--dim))'}`})),
+              h('span','num text-[0.7rem] text-mut w-11 text-right', pct(share))),
+            h('div','text-[0.68rem] text-dim mt-0.5', trib ? `Tributável · base ${brl(baseImposto(r))}` : 'Isenta de imposto'));
+        }))
+      : h('div','flex-1 grid place-items-center text-sm text-dim','Sem receitas neste mês.'));
+
+  return h('div','grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-4 fit-1row fade-in [&>*]:min-w-0',
+    h('div','flex flex-col gap-4 min-h-0', cabKpis, lista, previsao),
+    h('div','flex flex-col gap-4 min-h-0', taxCard(m), acao, composicao));
+}
+
+/* ═════════════ TABELAS EDITÁVEIS ═════════════ */
+const parseNum = v => v==='' ? null : Number(v);
+const SPEC = {
+  despesas: {
+    icon:'arrow-up-right', titulo:'Despesas',
+    ajuda:'Fixa = todo mês. Parcelada = valor da PARCELA + mês da 1ª + nº de parcelas (ao digitar as parcelas, o tipo muda sozinho). Única = só no mês de início. "Venc." = dia do vencimento (opcional): o Painel avisa o que vence ou está atrasado. Colunas calculadas mostram o mês selecionado.',
+    novo:()=>({ id:uid(), descricao:'', categoria:catNomes()[0]||'Outros', sub:'', tipo:'Fixa', valor:null, inicio:miStr(month), dia:null, parcelas:null, fim:'' }),
+    add:'Adicionar despesa',
+    cols:[
+      { key:'pago', label:'Pago', type:'pago' },
+      { key:'descricao', label:'Descrição', type:'text', w:'min-w-[8.5rem]', onchange:(row,old,nu)=>{ state.ajustes.forEach(a=>{ if(a.despesaId===row.id || (!a.despesaId && old && a.despesa===old)) a.despesa = nu; }); } },
+      { key:'categoria', label:'Categoria', type:'select', options:r=>[...new Set([...catNomes(), r.categoria].filter(Boolean))], w:'min-w-[11.5rem]',
+        onchange:(row,old,nu,tr)=>{ if(!subsDe(row.categoria).includes(row.sub)) row.sub = ''; refazSub(tr,row); } },
+      { key:'sub', label:'Subcategoria', type:'select', vazio:'— sem subcategoria —', options:r=>['', ...new Set([...subsDe(r.categoria), r.sub].filter(Boolean))], w:'min-w-[11.5rem]' },
+      { key:'tipo', label:'Tipo', type:'select', options:()=>['Fixa','Parcelada','Única'], w:'min-w-[7rem]',
+        onchange:(row,old,nu,tr)=>{ if(nu==='Parcelada' && !row.parcelas){ const p = tr.querySelector('[data-key="parcelas"]'); if(p) setTimeout(()=>p.focus(),0); } } },
+      { key:'valor', label:'Valor / parcela', type:'number', parse:parseNum, w:'min-w-[6.5rem]' },
+      { key:'inicio', label:'Mês início', type:'month', w:'min-w-[8.5rem]' },
+      { key:'dia', label:'Venc.', type:'number', parse:v=>v===''?null:Math.min(31,Math.max(1,Math.round(Number(v)))), step:1, ph:'dia', w:'min-w-[3.5rem]' },
+      // digitar o nº de parcelas já troca o Tipo para "Parcelada" (o campo nunca fica bloqueado)
+      { key:'parcelas', label:'Parcelas', type:'number', parse:v=>v===''?null:Math.max(1,Math.round(Number(v))), step:1, w:'min-w-[5rem]',
+        onchange:(row,old,nu,tr)=>{ if(nu!=null && row.tipo!=='Parcelada'){ row.tipo = 'Parcelada'; const s = tr.querySelector('[data-key="tipo"]'); if(s) s.value = 'Parcelada'; } } },
+      { key:'fim', label:'Mês fim', type:'month', w:'min-w-[8.5rem]' },
+      { key:'c_valor', label:'Valor no mês', type:'calc', calc:d=>brl(valorMes(d,month)) },
+      { key:'c_parcela', label:'Parcela', type:'calc', calc:d=>parcelaLabel(d,month)||'–' },
+      { key:'c_rest', label:'Restantes', type:'calc', xl:true, calc:d=>{ const r=mesesRestantes(d,month); return r==null?'–':String(r); } },
+      { key:'c_saldo', label:'Saldo futuro', type:'calc', xl:true, calc:d=>brl(saldoFuturo(d,month)) }
+    ],
+    rules:(r,tr)=>{
+      const pi = tr.querySelector('[data-key="parcelas"]'); if(pi) pi.style.opacity = r.tipo==='Parcelada' ? '' : '.5';   // só esmaece; continua editável
+      setDis(tr,'fim', r.tipo==='Única' || (r.tipo==='Parcelada' && !!r.parcelas));
+    }
+  },
+  ajustes: {
+    icon:'sliders-horizontal', titulo:'Ajustes por mês',
+    ajuda:'Use para mudar o valor de UMA despesa em UM mês (ex.: aluguel parcial, conta de luz variável). Nos demais meses vale o valor normal.',
+    novo:()=>({ id:uid(), despesaId:'', despesa:'', mes:miStr(month), valor:null, obs:'' }),
+    add:'Adicionar ajuste',
+    cols:[
+      // v5: a despesa é escolhida pelo ID (não pela descrição); getValue resolve também os ajustes antigos pelo fallback da descrição
+      { key:'despesaId', label:'Despesa', type:'select',
+        options:()=>[{ v:'', l:'— escolha —' }, ...state.despesas.map(d=>({ v:d.id, l:d.descricao||'(sem descrição)' }))],
+        getValue:r=>(despDoAjuste(r)||{}).id || '',
+        onchange:(row,old,nu)=>{ const d = state.despesas.find(x=>x.id===nu); row.despesa = d ? d.descricao : ''; },
+        w:'min-w-[11rem]' },
+      { key:'mes', label:'Mês', type:'month', w:'min-w-[9.5rem]' },
+      { key:'valor', label:'Valor real no mês', type:'number', parse:parseNum, w:'min-w-[8rem]' },
+      { key:'obs', label:'Observação', type:'text', w:'min-w-[14rem]' },
+      { key:'c_pad', label:'Valor padrão', type:'calc', calc:a=>brl(ajusteInfo(a).padrao) },
+      { key:'c_ativa', label:'Ativa no mês', type:'calc', calc:a=>ajusteInfo(a).ativa?'Sim':'Não – sem efeito' },
+      { key:'c_dif', label:'Diferença', type:'calc', calc:a=>brl(ajusteInfo(a).dif) }
+    ],
+    rules:()=>{}
+  }
+};
+function setDis(tr, key, on){ const el = tr.querySelector(`[data-key="${key}"]`); if(el) el.disabled = on; }
+/* Refaz a lista de subcategorias da linha quando a categoria muda */
+function refazSub(tr, row){
+  const col = SPEC.despesas.cols.find(c=>c.key==='sub'), el = tr && tr.querySelector('[data-key="sub"]');
+  if(!el) return;
+  el.replaceChildren(...col.options(row).map(o=>h('option',{value:o}, o===''?col.vazio:o)));
+  el.value = row.sub || '';
+}
+function fillCalc(list, tbody){
+  const spec = SPEC[list];
+  tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
+    const row = state[list].find(r=>r.id===tr.dataset.id); if(!row) return;
+    spec.cols.filter(c=>c.type==='calc').forEach(c=>{
+      const td = tr.querySelector(`[data-calc="${c.key}"]`);
+      if(td){ td.textContent = c.calc(row); td.classList.toggle('text-amber', c.key==='c_ativa' && td.textContent!=='Sim'); td.classList.toggle('text-coral', c.key==='c_cabe' && td.textContent.startsWith('Não')); }
+    });
+    spec.rules(row, tr);
+  });
+}
+function removeRow(list, row){
+  const idx = state[list].indexOf(row);
+  if(idx<0) return;
+  state[list].splice(idx,1); save(); render();
+  toast('Linha removida.', 'Desfazer', ()=>{ state[list].splice(idx,0,row); save(); render(); });
+}
+function viewTable(list){
+  const spec = SPEC[list];
+  const tbody = h('tbody','divide-y divide-hair');
+  state[list].forEach(row=>{
+    const tr = h('tr','rowh',{'data-id':row.id});
+    spec.cols.forEach(col=>{
+      if(col.type==='calc'){ tr.append(h('td',`num text-right text-mut px-3 py-2 whitespace-nowrap ${col.xl?'hidden min-[2000px]:table-cell':''}`,{'data-calc':col.key})); return; }
+      if(col.type==='acao'){          // botão de ação por linha (ex.: "Lançar como despesa")
+        tr.append(h('td','px-2 py-1.5 whitespace-nowrap',{'data-acao':col.key}, h('button','btn !h-8 !px-2.5 !text-[0.78rem]',{type:'button',title:col.titulo||'','aria-label':col.titulo||col.label,onclick:()=>col.run(row)}, col.icone?ic(col.icone,'w-3.5 h-3.5'):null, col.label))); return;
+      }
+      if(col.type==='pago'){          // checklist: pago / a pagar no mês selecionado
+        const ativa = valorMes(row, month) !== 0;
+        const cb = h('input',{type:'checkbox','data-key':'pago','aria-label':`Marcar ${row.descricao||'despesa'} como paga em ${fmtMes(month)}`,class:'w-[1.1rem] h-[1.1rem] cursor-pointer accent-[rgb(var(--accent-primary))] disabled:opacity-30 disabled:cursor-default',disabled:!ativa,title:ativa?'Pago ✓':'Sem valor neste mês'});
+        cb.checked = ativa && ehPago(row.id, month);
+        cb.addEventListener('change',()=>{ marcaPago(row.id, month, cb.checked); });
+        tr.append(h('td','px-0 py-1.5 text-center w-10',cb)); return;
+      }
+      let input;
+      if(col.type==='select'){
+        input = h('select','fld',{'data-key':col.key,'aria-label':col.label}, col.options(row).map(o=>{
+          const ov = typeof o==='object' ? o.v : o, ol = typeof o==='object' ? o.l : (o===''?(col.vazio||'— escolha —'):o);
+          return h('option',{value:ov}, ol);
+        }));
+        input.value = col.getValue ? col.getValue(row) : (row[col.key] ?? '');
+      } else if(col.type==='number'){
+        input = h('input','fld num',{type:'number','data-key':col.key,'aria-label':col.label,step:col.step||'0.01',inputmode:'decimal',placeholder:col.ph||'',value:row[col.key]==null?'':row[col.key]});
+      } else if(col.type==='month'){
+        input = h('input','fld',{type:'month','data-key':col.key,'aria-label':col.label,placeholder:'AAAA-MM',value:row[col.key]||''});
+      } else {
+        input = h('input','fld',{type:'text','data-key':col.key,'aria-label':col.label,value:row[col.key]||''});
+      }
+      input.addEventListener('change',()=>{
+        const old = row[col.key];
+        row[col.key] = col.parse ? col.parse(input.value) : input.value;
+        if(col.onchange) col.onchange(row, old, row[col.key], tr);
+        save(); fillCalc(list, tbody);
+        if(spec.depois) spec.depois();
+      });
+      tr.append(h('td',`px-2 py-1.5 ${col.w||''}`,input));
+    });
+    tr.append(h('td','pr-2 pl-0 w-px', h('button','ibtn hover:!text-coral',{type:'button',title:'Remover linha','aria-label':'Remover linha',onclick:()=>removeRow(list,row)}, ic('trash-2','w-4 h-4'))));
+    tbody.append(tr);
+  });
+  if(list==='despesas'){            // o imposto sobre nota também é uma conta a pagar no mês
+    const imp = taxInfo(month).imposto;
+    if(imp>0){
+      const cb = h('input',{type:'checkbox','data-key':'pago','aria-label':'Marcar o imposto sobre nota como pago',class:'w-[1.1rem] h-[1.1rem] cursor-pointer accent-[rgb(var(--accent-primary))]',title:'Pago ✓'});
+      cb.checked = ehPago(IMPOSTO_ID, month);
+      cb.addEventListener('change',()=>marcaPago(IMPOSTO_ID, month, cb.checked));
+      tbody.append(h('tr','rowh bg-fg/[0.025]',
+        h('td','px-0 py-2 text-center w-10',cb),
+        h('td',{colspan:String(spec.cols.length-1)}, h('span','px-3 text-sm font-medium','Imposto sobre nota (calculado)'), h('span','text-xs text-dim',`  ·  ${fmtMes(month)}  ·  `), h('span','num text-sm text-amber font-semibold',brl(imp))),
+        h('td','')));
+    }
+  }
+  const thead = h('thead','',h('tr','text-left border-b border-hair', spec.cols.map(c=>h('th',`eyebrow font-semibold ${c.type==='pago'?'px-1 text-center':'px-3'}${c.type==='acao'?' !text-transparent':''} py-3 whitespace-nowrap ${c.type==='calc'?'text-right':''} ${c.xl?'hidden min-[2000px]:table-cell':''}`,c.label)), h('th','')));
+  const body = state[list].length
+    ? h('div','overflow-x-auto scroll-thin', h('table','w-full text-sm',thead,tbody))
+    : h('div','py-14 text-center text-sm text-dim','Nada cadastrado ainda.');
+  fillCalc(list, tbody);
+  return h('div','space-y-4 fade-in',
+    h('div','flex flex-wrap items-end justify-between gap-3',
+      h('div','max-w-[70ch]',
+        h('div','flex items-center gap-2 text-lg font-semibold tracking-tight', ic(spec.icon,'w-5 h-5 text-mut'), spec.titulo),
+        h('p','text-sm text-mut mt-1',spec.ajuda),
+        spec.semMes ? null : h('p','text-xs text-dim mt-1.5','Colunas calculadas referem-se a ', h('span','text-mut font-medium',fmtMes(month)),'.')),
+      h('button','btn btn-primary',{type:'button',onclick:()=>{ state[list].push(spec.novo()); save(); render(); }}, ic('plus','w-4 h-4'), spec.add)),
+    h('div','glass rounded-2xl overflow-hidden', body));
+}
+
+/* ═════════════ Janelas (modal) ═════════════ */
+let modalEl = null;
+function closeModal(){ if(modalEl){ modalEl.remove(); modalEl = null; } }
+function openModal(titulo, ...kids){
+  closeModal();
+  const [title, largura] = Array.isArray(titulo) ? titulo : [titulo, 'max-w-md'];
+  modalEl = h('div','fixed inset-0 z-[90] grid place-items-center p-4 bg-black/40 backdrop-blur-sm overflow-auto',{onclick:e=>{ if(e.target===modalEl) closeModal(); }},
+    h('div',`glass rounded-2xl p-6 w-full ${largura}`,{role:'dialog','aria-label':title},
+      h('div','flex items-center justify-between mb-4', h('h3','font-semibold tracking-tight',title), h('button','ibtn',{type:'button','aria-label':'Fechar',onclick:closeModal}, ic('x','w-4 h-4'))),
+      ...kids));
+  document.body.append(modalEl); icons();
+  const f = modalEl.querySelector('input'); if(f) f.focus();
+  return modalEl;
+}
+function pwField(label, ac){
+  const input = h('input','fld !h-11',{type:'password',autocomplete:ac||'off',spellcheck:'false'});
+  const eye = h('button','absolute right-1.5 top-1/2 -translate-y-1/2 ibtn',{type:'button','aria-label':'Mostrar ou ocultar',tabindex:'-1',onclick:()=>{
+    const show = input.type==='password'; input.type = show ? 'text' : 'password'; eye.replaceChildren(ic(show?'eye-off':'eye','w-4 h-4')); icons();
+  }}, ic('eye','w-4 h-4'));
+  return { input, el: h('label','block', h('span','block text-xs text-mut mb-1.5 font-medium',label), h('div','relative', input, eye)) };
+}
+function forcaSenha(s){
+  let n = 0; if(s.length>=8) n++; if(s.length>=12) n++; if(/[a-z]/.test(s)&&/[A-Z]/.test(s)) n++; if(/\d/.test(s)&&/[^A-Za-z0-9]/.test(s)) n++;
+  return n;
+}
+function medidorSenha(input){
+  const bar = h('div','flex gap-1 mt-2', [0,1,2,3].map(()=>h('i','h-1 flex-1 rounded-full bg-fg/10')));
+  const txt = h('div','text-[0.7rem] text-dim mt-1','Use 8 ou mais caracteres. Frases longas são melhores que senhas curtas.');
+  input.addEventListener('input',()=>{
+    const n = input.value ? forcaSenha(input.value) : 0;
+    [...bar.children].forEach((b,i)=>{ b.className = 'h-1 flex-1 rounded-full ' + (i<n ? (n<=1?'bg-coral':n<=2?'bg-amber':'bg-mint') : 'bg-fg/10'); });
+    txt.textContent = !input.value ? 'Use 8 ou mais caracteres. Frases longas são melhores que senhas curtas.' : ['Muito fraca','Fraca','Razoável','Boa','Forte'][n];
+  });
+  return h('div','',bar,txt);
+}
+const slowGuard = async (btn, labelBusy, fn) => {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = labelBusy;
+  await new Promise(r=>setTimeout(r,30));
+  try{ return await fn(); } finally { btn.disabled = false; btn.textContent = old; }
+};
+
+/* ═════════════ Tela de entrada (senha) ═════════════ */
+function lockShell(icon, title, subtitle, ...kids){
+  return h('div','w-full max-w-sm fade-in',
+    h('div','flex flex-col items-center text-center mb-6',
+      h('div','grid place-items-center w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo to-cyan text-[rgb(var(--on-accent))] shadow-lg mb-4', ic(icon,'w-7 h-7')),
+      h('h1','text-xl font-semibold tracking-tight',title),
+      subtitle ? h('p','text-sm text-mut mt-1.5 max-w-[32ch]',subtitle) : null),
+    h('div','glass rounded-2xl p-5', ...kids));
+}
+function showLock(mode, extra={}){
+  const el = $('#lock');
+  el.classList.remove('hidden'); el.classList.add('flex');
+  $('#app').setAttribute('inert','');
+  const err = h('p','text-sm text-coral min-h-[1.25rem] mt-3 text-center',{role:'alert'});
+  const setErr = m => { err.textContent = m||''; };
+  let card;
+
+  if(mode==='setup'){
+    const p1 = pwField('Crie uma senha','new-password'), p2 = pwField('Repita a senha','new-password');
+    const btn = h('button','btn btn-primary w-full !h-11 mt-4',{type:'submit'},'Criar senha e continuar');
+    const legacy = (()=>{ try{ const s = JSON.parse(lsGet(K_LEGACY)); return valid(s)?s:null; }catch(e){ return null; } })();
+    card = lockShell('shield-check','Proteja seus dados','Eles ficam criptografados neste computador. Só quem tem a senha consegue abrir.',
+      h('form','space-y-3.5',{onsubmit:async e=>{
+        e.preventDefault(); setErr('');
+        const s = p1.input.value;
+        if(s.length<8) return setErr('A senha precisa ter pelo menos 8 caracteres.');
+        if(s!==p2.input.value) return setErr('As senhas não conferem.');
+        try{
+          const inicial = legacy || SEED(); migrar(inicial);
+          const code = await slowGuard(btn,'Protegendo…',()=>criarConta(s, inicial));
+          if(legacy) lsDel(K_LEGACY);
+          showLock('codigo',{code});
+        }catch(ex){ setErr('Não foi possível criar a proteção: '+ex.message); }
+      }}, p1.el, medidorSenha(p1.input), p2.el, btn, err));
+  }
+
+  else if(mode==='codigo'){
+    const salvo = h('input',{type:'checkbox',class:'mt-0.5 w-4 h-4 accent-[rgb(var(--accent-primary))]'});
+    const go = h('button','btn btn-primary w-full !h-11 mt-4',{type:'button',disabled:true,onclick:()=>entrar()},'Continuar');
+    salvo.addEventListener('change',()=>{ go.disabled = !salvo.checked; });
+    card = lockShell('key-round','Guarde seu código de recuperação','Se esquecer a senha, este código é a única forma de abrir seus dados.',
+      h('div','text-center num text-[1.15rem] font-semibold tracking-wider py-3.5 rounded-xl bg-fg/[0.05] border border-line select-all', extra.code),
+      h('div','flex gap-2 mt-3',
+        h('button','btn flex-1',{type:'button',onclick:async()=>{ try{ await navigator.clipboard.writeText(extra.code); toast('Código copiado.'); }catch(e){ toast('Não foi possível copiar. Anote à mão.'); } }}, ic('copy','w-4 h-4'),'Copiar'),
+        h('button','btn flex-1',{type:'button',onclick:()=>{
+          const blob = new Blob([`Código de recuperação — Orçamento\r\n\r\n${extra.code}\r\n\r\nGuarde em local seguro (fora deste computador). Sem a senha e sem este código, os dados não podem ser recuperados.\r\n`],{type:'text/plain'});
+          const a = h('a',{href:URL.createObjectURL(blob),download:'codigo-de-recuperacao-orcamento.txt'}); document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+        }}, ic('download','w-4 h-4'),'Salvar .txt')),
+      h('label','flex items-start gap-2.5 text-sm text-mut mt-4 cursor-pointer', salvo, 'Guardei o código em um lugar seguro (fora deste computador).'),
+      go);
+  }
+
+  else if(mode==='recover'){
+    const code = h('input','fld !h-11 num uppercase tracking-wider',{type:'text',placeholder:'XXXXX-XXXXX-XXXXX-XXXXX',autocomplete:'off',spellcheck:'false'});
+    const p1 = pwField('Nova senha','new-password'), p2 = pwField('Repita a nova senha','new-password');
+    const btn = h('button','btn btn-primary w-full !h-11 mt-4',{type:'submit'},'Redefinir senha');
+    card = lockShell('life-buoy','Recuperar acesso','Digite o código de recuperação que você guardou e escolha uma nova senha.',
+      h('form','space-y-3.5',{onsubmit:async e=>{
+        e.preventDefault(); setErr('');
+        if(normRec(code.value).length<20) return setErr('Digite o código completo (20 caracteres).');
+        if(p1.input.value.length<8) return setErr('A nova senha precisa ter pelo menos 8 caracteres.');
+        if(p1.input.value!==p2.input.value) return setErr('As senhas não conferem.');
+        try{
+          const novo = await slowGuard(btn,'Verificando…',()=>recuperar(code.value, p1.input.value));
+          limpaFalhas(); showLock('codigo',{code:novo});
+        }catch(ex){ setErr('Código incorreto. Confira e tente de novo.'); }
+      }},
+        h('label','block', h('span','block text-xs text-mut mb-1.5 font-medium','Código de recuperação'), code),
+        p1.el, p2.el, btn, err,
+        h('button','block mx-auto text-sm text-mut hover:text-fg mt-1',{type:'button',onclick:()=>showLock('unlock')},'← Voltar')));
+  }
+
+  else { // unlock
+    const p1 = pwField('Senha','current-password');
+    const btn = h('button','btn btn-primary w-full !h-11 mt-4',{type:'submit'},'Entrar');
+    let tick = null;
+    const espera = () => {
+      const ms = esperaRestante();
+      if(ms>0){ btn.disabled = true; setErr(`Muitas tentativas. Aguarde ${Math.ceil(ms/1000)} s.`); if(!tick) tick = setInterval(espera,500); }
+      else { if(tick){ clearInterval(tick); tick=null; } if(btn.textContent==='Entrar'){ btn.disabled=false; } if(/Aguarde/.test(err.textContent)) setErr(''); }
+    };
+    card = lockShell('lock-keyhole','Orçamento','Digite sua senha para abrir.',
+      h('form','space-y-3.5',{onsubmit:async e=>{
+        e.preventDefault(); setErr('');
+        if(esperaRestante()>0) return espera();
+        if(!p1.input.value) return setErr('Digite a senha.');
+        try{
+          await slowGuard(btn,'Abrindo…',()=>destrancar(p1.input.value));
+          limpaFalhas(); entrar();
+        }catch(ex){
+          registraFalha(); p1.input.value=''; p1.input.focus();
+          setErr('Senha incorreta.'); espera();
+        }
+      }}, p1.el, btn, err,
+        h('button','block mx-auto text-sm text-mut hover:text-fg mt-1',{type:'button',onclick:()=>showLock('recover')},'Esqueci a senha')));
+    setTimeout(espera,0);
+    setTimeout(()=>p1.input.focus(),30);
+  }
+
+  el.replaceChildren(card);
+  icons();
+  const first = el.querySelector('input:not([type=checkbox])'); if(first && mode!=='unlock') first.focus();
+}
+function entrar(){
+  animarEntrada = true;
+  $('#lock').classList.add('hidden'); $('#lock').classList.remove('flex'); $('#lock').replaceChildren();
+  $('#app').removeAttribute('inert');
+  if(!qs.get('mes')) month = defaultMonth();
+  armIdle(); render(); bkCarrega();
+}
+
+/* ═════════════ Backup automático rotativo (File System Access API) ═════════════
+   Pasta escolhida pelo usuário → backup-auto-AAAA-MM-DD.json (um por dia, sobrescreve o do dia),
+   no máximo 1 gravação a cada 5 min e só os 5 mais recentes são mantidos.
+   O manipulador da pasta fica no IndexedDB (não contém dados financeiros). O arquivo NÃO é criptografado. */
+const K_BKMETA = 'cf-backup-meta';
+const BK_MIN_MS = 5*60*1000, BK_MANTER = 5, BK_RE = /^backup-auto-\d{4}-\d{2}-\d{2}\.json$/;
+const bkSuportado = () => typeof window.showDirectoryPicker === 'function' && 'indexedDB' in window;
+let bkDir = null, bkPerm = 'none', bkTimer = null, bkRodando = false;   // bkPerm: none | granted | prompt | erro
+const bkMeta = () => { try{ return JSON.parse(lsGet(K_BKMETA)) || {}; }catch(e){ return {}; } };
+const bkSetMeta = o => lsSet(K_BKMETA, JSON.stringify(Object.assign(bkMeta(), o)));
+const idbAbre = () => new Promise((ok,err)=>{ const r = indexedDB.open('cf-handles',1); r.onupgradeneeded = ()=>r.result.createObjectStore('h'); r.onsuccess = ()=>ok(r.result); r.onerror = ()=>err(r.error); });
+async function idbOp(modo, fn){ const db = await idbAbre(); try{ return await new Promise((ok,err)=>{ const q = fn(db.transaction('h',modo).objectStore('h')); q.onsuccess = ()=>ok(q.result); q.onerror = ()=>err(q.error); }); } finally{ db.close(); } }
+const bkDataLocal = (d=new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function bkQuando(ms){
+  if(!ms) return 'ainda não feito';
+  const d = new Date(ms), hm = d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return bkDataLocal(d)===bkDataLocal() ? `hoje às ${hm}` : `${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} às ${hm}`;
+}
+async function bkPermissao(pedir){
+  if(!bkDir) return 'none';
+  try{
+    let p = await bkDir.queryPermission({mode:'readwrite'});
+    if(p!=='granted' && pedir) p = await bkDir.requestPermission({mode:'readwrite'});
+    return p==='granted' ? 'granted' : 'prompt';
+  }catch(e){ return 'erro'; }
+}
+async function bkCarrega(){
+  if(!bkSuportado() || bkDir) { bkAtualizaUI(); return; }
+  try{ bkDir = (await idbOp('readonly', s=>s.get('backupDir'))) || null; }catch(e){ bkDir = null; }
+  bkPerm = await bkPermissao(false);
+  bkAtualizaUI();
+}
+async function bkVincular(){
+  if(!bkSuportado()){ toast('Este navegador não permite escolher pasta de backup.'); return; }
+  let dir;
+  try{ dir = await window.showDirectoryPicker({ id:'orcamento-backup', mode:'readwrite' }); }
+  catch(e){ if(e && e.name!=='AbortError') toast('Não foi possível vincular a pasta.'); return; }
+  try{ await idbOp('readwrite', s=>s.put(dir,'backupDir')); }catch(e){ toast('Não foi possível guardar a pasta escolhida.'); return; }
+  bkDir = dir; bkPerm = 'granted'; bkSetMeta({ nome: dir.name, erro: '' });
+  await fazBackup(true);
+}
+async function bkReautorizar(){ bkPerm = await bkPermissao(true); if(bkPerm==='granted'){ bkSetMeta({erro:''}); await fazBackup(true); } else bkAtualizaUI(); }
+async function bkDesvincular(){
+  clearTimeout(bkTimer); bkTimer = null; bkDir = null; bkPerm = 'none';
+  try{ await idbOp('readwrite', s=>s.delete('backupDir')); }catch(e){}
+  bkSetMeta({ nome:'', erro:'' }); bkAtualizaUI(); toast('Pasta desvinculada. Os arquivos já gravados continuam lá.');
+}
+/* chamado a cada gravação: agrupa as alterações e respeita o intervalo mínimo de 5 min entre backups */
+function agendaBackupAuto(){
+  if(!bkDir || bkPerm!=='granted' || !state || bkTimer) return;
+  const espera = Math.max(2000, (bkMeta().ultimo||0) + BK_MIN_MS - Date.now());
+  bkTimer = setTimeout(()=>{ bkTimer = null; fazBackup(false); }, espera);
+}
+async function fazBackup(manual){
+  if(!bkDir || !state || bkRodando) return false;
+  bkRodando = true;
+  try{
+    if(await bkPermissao(false)!=='granted'){ bkPerm = 'prompt'; bkAtualizaUI(); return false; }
+    const agora = Date.now(), nome = `backup-auto-${bkDataLocal()}.json`;
+    const corpo = JSON.stringify(Object.assign({}, estadoParaArquivo(), { exportadoEm: new Date(agora).toISOString() }), null, 2);
+    const fh = await bkDir.getFileHandle(nome, { create:true });
+    const w = await fh.createWritable(); await w.write(corpo); await w.close();
+    /* rotação: mantém só os BK_MANTER backups automáticos mais recentes (nomes AAAA-MM-DD ordenam por data) */
+    const nomes = [];
+    for await (const [n, hd] of bkDir.entries()) if(hd.kind==='file' && BK_RE.test(n)) nomes.push(n);
+    nomes.sort().reverse();
+    for(const n of nomes.slice(BK_MANTER)){ try{ await bkDir.removeEntry(n); }catch(e){} }
+    bkPerm = 'granted'; bkSetMeta({ ultimo: agora, ultimoArq: nome, erro:'' });
+    bkAtualizaUI(); if(manual) toast(`Backup gravado em “${bkDir.name}”.`);
+    return true;
+  }catch(e){
+    bkSetMeta({ erro: String((e&&e.message)||e).slice(0,120) }); bkPerm = 'erro'; bkAtualizaUI();
+    if(manual) toast('Não consegui gravar o backup na pasta. Veja Configurações › Backup.');
+    return false;
+  }finally{ bkRodando = false; }
+}
+function bkTextoStatus(){
+  const m = bkMeta();
+  if(!bkSuportado()) return { t:'Este navegador não permite backup automático em pasta.', warn:false };
+  if(!bkDir) return { t:'Nenhuma pasta vinculada.', warn:false };
+  if(bkPerm==='prompt') return { t:`Pasta “${m.nome||bkDir.name}”: precisa de autorização para continuar.`, warn:true };
+  if(bkPerm==='erro') return { t:`Falha ao gravar na pasta “${m.nome||bkDir.name}”${m.erro?': '+m.erro:''}.`, warn:true };
+  return { t:`Pasta “${m.nome||bkDir.name}” · último backup: ${bkQuando(m.ultimo)}`, warn:false };
+}
+function bkBloco(){
+  const st = bkTextoStatus(), m = bkMeta();
+  const bt = [];
+  if(!bkSuportado()) { /* sem botões */ }
+  else if(!bkDir) bt.push(h('button','btn',{type:'button',onclick:bkVincular}, ic('folder-sync','w-4 h-4'),'Vincular pasta de backup automático'));
+  else{
+    if(bkPerm!=='granted') bt.push(h('button','btn btn-primary',{type:'button',onclick:bkReautorizar}, ic('shield-check','w-4 h-4'),'Reautorizar pasta'));
+    bt.push(h('button','btn',{type:'button',onclick:()=>fazBackup(true)}, ic('save','w-4 h-4'),'Fazer backup agora'));
+    bt.push(h('button','btn',{type:'button',onclick:bkVincular}, ic('folder-sync','w-4 h-4'),'Trocar pasta'));
+    bt.push(h('button','btn btn-danger',{type:'button',onclick:()=>{ if(confirm('Desvincular a pasta de backup automático?')) bkDesvincular(); }}, ic('unlink','w-4 h-4'),'Desvincular'));
+  }
+  return [
+    h('div','text-sm font-medium', 'Backup automático em pasta'),
+    h('p',`text-xs mt-1 ${st.warn?'text-amber':'text-dim'}`,{id:'bkStatus'}, st.t),
+    bkDir ? h('p','text-xs text-dim mt-0.5', `Grava no máximo a cada 5 min · mantém os ${BK_MANTER} mais recentes (backup-auto-AAAA-MM-DD.json).`) : h('p','text-xs text-dim mt-0.5', 'Escolha uma pasta (de preferência no OneDrive ou em um pendrive). O arquivo gravado NÃO é criptografado.'),
+    h('div','flex flex-wrap gap-2 mt-3', bt)
+  ];
+}
+function bkAtualizaUI(){
+  const ind = $('#bkInd'); if(!ind) return;
+  const st = bkTextoStatus();
+  if(!bkSuportado() || !bkDir || !state){ ind.style.display = 'none'; }
+  else{
+    ind.style.display = '';
+    ind.classList.toggle('warn', st.warn);
+    ind.replaceChildren(ic(st.warn?'shield-alert':'hard-drive','w-3.5 h-3.5'), h('span','hidden min-[1700px]:inline', st.warn ? 'Backup: autorizar' : 'Backup '+bkQuando(bkMeta().ultimo)));
+    ind.title = st.t;
+  }
+  const box = document.getElementById('bkBox'); if(box) box.replaceChildren(...bkBloco());
+  icons();
+}
+$('#bkInd').addEventListener('click',()=>{ if(tab!=='config'){ tab='config'; animarEntrada = true; render(); } else bkAtualizaUI(); });
+
+/* ═════════════ CONFIGURAÇÕES ═════════════ */
+function field(label, input, hint){ return h('label','block', h('span','block text-xs text-mut mb-1.5 font-medium',label), input, hint?h('span','block text-[0.7rem] text-dim mt-1',hint):null); }
+
+function modalTrocarSenha(){
+  const a = pwField('Senha atual','current-password'), n = pwField('Nova senha','new-password'), c = pwField('Repita a nova senha','new-password');
+  const err = h('p','text-sm text-coral min-h-[1.25rem]',{role:'alert'});
+  const btn = h('button','btn btn-primary w-full !h-11',{type:'submit'},'Alterar senha');
+  openModal('Alterar senha', h('form','space-y-3.5',{onsubmit:async e=>{
+    e.preventDefault(); err.textContent='';
+    if(n.input.value.length<8) return err.textContent='A nova senha precisa ter pelo menos 8 caracteres.';
+    if(n.input.value!==c.input.value) return err.textContent='As senhas não conferem.';
+    try{ await slowGuard(btn,'Alterando…',()=>trocarSenha(a.input.value, n.input.value)); closeModal(); toast('Senha alterada.'); }
+    catch(ex){ err.textContent='Senha atual incorreta.'; }
+  }}, a.el, n.el, medidorSenha(n.input), c.el, err, btn));
+}
+function modalNovoCodigo(){
+  const a = pwField('Digite sua senha para confirmar','current-password');
+  const err = h('p','text-sm text-coral min-h-[1.25rem]',{role:'alert'});
+  const btn = h('button','btn btn-primary w-full !h-11',{type:'submit'},'Gerar novo código');
+  openModal('Novo código de recuperação', h('p','text-sm text-mut mb-3','O código anterior deixa de funcionar.'),
+    h('form','space-y-3.5',{onsubmit:async e=>{
+      e.preventDefault(); err.textContent='';
+      try{
+        const code = await slowGuard(btn,'Gerando…',()=>gerarNovoCodigo(a.input.value));
+        openModal('Seu novo código', h('div','text-center num text-[1.1rem] font-semibold tracking-wider py-3.5 rounded-xl bg-fg/[0.05] border border-line select-all',code),
+          h('p','text-sm text-mut mt-3','Guarde em um lugar seguro, fora deste computador.'),
+          h('button','btn w-full mt-4',{type:'button',onclick:async()=>{ try{ await navigator.clipboard.writeText(code); toast('Código copiado.'); }catch(e){} }}, ic('copy','w-4 h-4'),'Copiar'));
+      }catch(ex){ err.textContent='Senha incorreta.'; }
+    }}, a.el, err, btn));
+}
+
+function viewConfig(){
+  const P = state.params;
+  const numField = (label, key, {factor=1, step='0.1', min=0}={}) => {
+    const input = h('input','fld num',{type:'number',step,min,inputmode:'decimal',value:+(P[key]*factor).toFixed(4)});
+    input.addEventListener('change',()=>{ const v=Number(input.value); P[key] = isFinite(v)?v/factor:P[key]; save(); });
+    return field(label,input);
+  };
+
+  /* Imposto calculado: em qual categoria / subcategoria ele entra */
+  const selCat = h('select','fld',{'aria-label':'Categoria do imposto'});
+  const selSub = h('select','fld',{'aria-label':'Subcategoria do imposto'});
+  const drawImposto = () => {
+    selCat.replaceChildren(...catNomes().map(n=>h('option',{value:n},n)));
+    if(!catNomes().includes(P.impostoCat)) P.impostoCat = catNomes()[0] || 'Outros';
+    selCat.value = P.impostoCat;
+    selSub.replaceChildren(h('option',{value:''},'— nenhuma —'), ...subsDe(P.impostoCat).map(s=>h('option',{value:s},s)));
+    selSub.value = subsDe(P.impostoCat).includes(P.impostoSub) ? P.impostoSub : '';
+  };
+  selCat.addEventListener('change',()=>{ P.impostoCat = selCat.value; P.impostoSub = ''; save(); drawImposto(); });
+  selSub.addEventListener('change',()=>{ P.impostoSub = selSub.value; save(); });
+
+  /* Categorias principais e subcategorias */
+  const catBox = h('div','grid gap-3 md:grid-cols-2');
+  const drawCats = () => {
+    catBox.replaceChildren(...state.categorias.map((c,i)=>{
+      const nome = h('input','fld !font-semibold',{type:'text',value:c.nome,'aria-label':'Categoria '+(i+1)});
+      nome.addEventListener('change',()=>{
+        const novo = nome.value.trim(), old = c.nome;
+        if(!novo || state.categorias.some((x,j)=>j!==i && x.nome===novo)){ nome.value = old; return; }
+        state.despesas.forEach(d=>{ if(d.categoria===old) d.categoria = novo; });
+        if(P.impostoCat===old) P.impostoCat = novo;
+        c.nome = novo; save(); drawImposto();
+      });
+      const subsEl = h('div','flex flex-wrap gap-1.5 mt-2.5');
+      const drawSubs = () => {
+        subsEl.replaceChildren(...c.subs.map((s,j)=>{
+          const inp = h('input','bg-transparent outline-none text-[0.8rem] px-2 h-7 min-w-0 flex-1',{type:'text',value:s,size:String(Math.max(6,s.length)),'aria-label':'Subcategoria '+s});
+          inp.addEventListener('change',()=>{
+            const novo = inp.value.trim(), old = c.subs[j];
+            if(!novo || c.subs.some((x,k)=>k!==j && x===novo)){ inp.value = old; return; }
+            state.despesas.forEach(d=>{ if(d.categoria===c.nome && d.sub===old) d.sub = novo; });
+            if(P.impostoCat===c.nome && P.impostoSub===old) P.impostoSub = novo;
+            c.subs[j] = novo; save(); drawImposto();
+          });
+          return h('div','flex items-center rounded-lg border border-line bg-s1 max-w-full min-w-0', inp,
+            h('button','ibtn !w-6 !h-6 hover:!text-coral',{type:'button','aria-label':'Remover subcategoria '+s,title:'Remover',onclick:()=>{
+              const rem = c.subs.splice(j,1)[0]; save(); drawSubs(); drawImposto();
+              toast(`Subcategoria "${rem}" removida.`,'Desfazer',()=>{ c.subs.splice(j,0,rem); save(); drawSubs(); drawImposto(); });
+            }}, ic('x','w-3 h-3')));
+        }),
+        h('button','btn !h-7 !text-[0.75rem] !px-2',{type:'button',onclick:()=>{ c.subs.push('Nova subcategoria'); save(); drawSubs(); drawImposto(); }}, ic('plus','w-3 h-3'),'subcategoria'));
+        icons();
+      };
+      drawSubs();
+      return h('div','rounded-xl border border-line bg-fg/[0.025] p-3',
+        h('div','flex gap-2', nome,
+          h('button','ibtn border border-line hover:!text-coral shrink-0',{type:'button','aria-label':'Remover categoria '+c.nome,title:'Remover categoria',onclick:()=>{
+            const usa = state.despesas.filter(d=>d.categoria===c.nome).length;
+            if(usa>0){ toast(`"${c.nome}" tem ${usa} despesa(s). Troque a categoria delas antes de remover.`); return; }
+            const idx = state.categorias.indexOf(c); state.categorias.splice(idx,1); save(); drawCats();
+            toast(`Categoria "${c.nome}" removida.`,'Desfazer',()=>{ state.categorias.splice(idx,0,c); save(); drawCats(); });
+          }}, ic('trash-2','w-4 h-4'))),
+        subsEl);
+    }));
+    icons(); drawImposto();
+  };
+  drawCats();
+
+  const fileIn = h('input',{type:'file',accept:'application/json,.json',class:'hidden'});
+  fileIn.addEventListener('change',async()=>{
+    const f = fileIn.files[0]; if(!f) return;
+    try{
+      const s = JSON.parse(await f.text());
+      if(!valid(s)) throw new Error('formato');
+      migrar(s);
+      if(state.ia){ if(!s.ia.chave) s.ia.chave = state.ia.chave; if(!s.ia.geminiChave) s.ia.geminiChave = state.ia.geminiChave; }   // o backup não leva as chaves da IA: mantém as que já estavam
+      state = s; save(); month = defaultMonth(); render(); toast('Backup importado.');
+    }catch(e){ toast('Arquivo inválido: não é um backup deste app.'); }
+    fileIn.value='';
+  });
+
+  const lockSel = h('select','fld',{'aria-label':'Bloqueio automático'}, [[0,'Nunca'],[5,'5 minutos'],[15,'15 minutos'],[30,'30 minutos'],[60,'1 hora']].map(([v,l])=>h('option',{value:String(v)},l)));
+  lockSel.value = String(autoLockMin());
+  lockSel.addEventListener('change',()=>{ lsSet(K_AUTOLOCK, lockSel.value); armIdle(); toast('Bloqueio automático atualizado.'); });
+
+  const sec = (icone,titulo,...kids) => h('section','glass rounded-2xl p-5', cardTitle(icone,titulo), ...kids);
+  return h('div','space-y-4 fade-in',
+    h('div','flex items-center gap-2 text-lg font-semibold tracking-tight', ic('settings','w-5 h-5 text-mut'), 'Configurações'),
+    h('div','grid gap-4 xl:grid-cols-2 min-[1700px]:grid-cols-3 items-start',
+      h('div','grid gap-4 items-start',
+        sec('sliders-horizontal','Parâmetros',
+          h('div','grid sm:grid-cols-2 gap-4',
+            numField('Alíquota do imposto sobre a nota (%)','aliquota',{factor:100}),
+            numField('Imposto pago X meses após o recebimento','lag',{step:'1'}),
+            numField('Limite de atenção (% comprometido)','limAtencao',{factor:100,step:'1'}),
+            numField('Limite crítico (% comprometido)','limCritico',{factor:100,step:'1'}))),
+        sec('landmark','Onde o imposto calculado aparece',
+          h('p','text-sm text-mut mb-3','O imposto sobre nota entra no painel dentro desta categoria e subcategoria.'),
+          h('div','grid sm:grid-cols-2 gap-4', field('Categoria', selCat), field('Subcategoria', selSub)))),
+      sec('tags','Categorias e subcategorias', catBox,
+        h('div','mt-3',h('button','btn',{type:'button',onclick:()=>{
+          let n = 'Nova categoria', k = 2; while(state.categorias.some(c=>c.nome===n)) n = 'Nova categoria '+(k++);
+          state.categorias.push({ nome:n, subs:[] }); save(); drawCats();
+        }}, ic('plus','w-4 h-4'),'Adicionar categoria'))),
+      h('div','grid gap-4 xl:col-span-2 xl:grid-cols-2 min-[1700px]:col-span-1 min-[1700px]:grid-cols-1 items-start',
+        hostApp() ? sec('monitor','Janela do aplicativo', (()=>{
+          const H = hostApp(), envia = o => { try{ window.chrome.webview.postMessage(JSON.stringify(o)); }catch(e){} };
+          const selX = h('select','fld',{'aria-label':'Ao clicar no X'}, [['1','Minimizar para a bandeja (como o Discord)'],['0','Fechar o aplicativo']].map(([v,l])=>h('option',{value:v},l)));
+          selX.value = H.fecharNaBandeja ? '1' : '0';
+          selX.addEventListener('change',()=>{ H.fecharNaBandeja = selX.value==='1'; envia({ tipo:'config', fecharNaBandeja:H.fecharNaBandeja }); toast('Preferência salva.'); });
+          return h('div','', field('Ao clicar no X da janela', selX, 'Na bandeja (perto do relógio) o app continua aberto, mas fica bloqueado: ao voltar, peça a senha. A IA local é desligada enquanto a janela está escondida.'),
+            h('div','mt-4', h('button','btn btn-danger',{type:'button',onclick:()=>envia({ tipo:'sair' })}, ic('power','w-4 h-4'),'Sair do aplicativo (encerra a IA)')));
+        })()) : null,
+        sec('shield-check','Segurança',
+          h('p','text-sm text-mut mb-3','Seus dados são criptografados neste computador e protegidos por senha.'),
+          field('Bloquear automaticamente após inatividade', lockSel),
+          h('div','flex flex-wrap gap-2 mt-4',
+            h('button','btn',{type:'button',onclick:bloquear}, ic('lock','w-4 h-4'),'Bloquear agora'),
+            h('button','btn',{type:'button',onclick:modalTrocarSenha}, ic('key-round','w-4 h-4'),'Alterar senha'),
+            h('button','btn',{type:'button',onclick:modalNovoCodigo}, ic('life-buoy','w-4 h-4'),'Novo código de recuperação'))),
+        sec('database','Backup e dados',
+          h('p','text-sm text-mut mb-1','Os dados ficam só neste computador. Exporte um backup de vez em quando — e para levar para outro aparelho.'),
+          h('p','text-xs text-dim mb-4','O arquivo de backup NÃO é criptografado: guarde-o com cuidado.'),
+          h('div','mb-4 pb-4 border-b border-hair',{id:'bkBox'}, bkBloco()),
+          h('div','flex flex-wrap gap-2',
+            h('button','btn btn-primary',{type:'button',onclick:exportJson}, ic('download','w-4 h-4'),'Exportar backup'),
+            h('button','btn',{type:'button',onclick:()=>fileIn.click()}, ic('upload','w-4 h-4'),'Importar backup'),
+            fileIn,
+            h('button','btn btn-danger',{type:'button',onclick:()=>{
+              if(confirm('Voltar aos dados iniciais? Suas alterações serão perdidas.')){
+                state = SEED(); save(); month = defaultMonth(); render(); toast('Dados iniciais restaurados.');
+              }
+            }}, ic('rotate-ccw','w-4 h-4'),'Restaurar dados iniciais'))))));
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify(estadoParaArquivo(),null,2)],{type:'application/json'});
+  const a = h('a',{href:URL.createObjectURL(blob),download:`controle-financeiro-${new Date().toISOString().slice(0,10)}.json`});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ═════════════ LISTA DE COMPRAS ═════════════
+   Itens que você pretende comprar, com prioridade, valor, forma de pagamento e mês. A coluna "Cabe no mês?" compara o item com a
+   sobra do mês (receita − comprometido) já descontando os itens de MAIOR prioridade. "Lançar" cria a despesa e marca como comprado. */
+const PRIO = { 'Alta':0, 'Média':1, 'Baixa':2 };
+const compraN = c => c.pagamento==='Parcelado' ? Math.max(1, Math.round(num(c.parcelas)) || 1) : 1;
+const compraPorMes = c => round2(num(c.valor) / compraN(c));
+const compraImpacto = (c, m) => { const s = mi(c.mes); if(s==null || c.status==='Comprado') return 0; return (m>=s && m<s+compraN(c)) ? compraPorMes(c) : 0; };
+function compraCabe(c){
+  if(c.status==='Comprado' || !(num(c.valor)>0) || mi(c.mes)==null) return null;
+  const m = mi(c.mes), S = summary(m);
+  const ordem = state.compras.filter(x=>x.status!=='Comprado').slice().sort((a,b)=>(PRIO[a.prioridade]??1)-(PRIO[b.prioridade]??1) || state.compras.indexOf(a)-state.compras.indexOf(b));
+  const sobra = round2(S.saldo - sum(ordem.slice(0, ordem.indexOf(c)+1), x=>compraImpacto(x, m)));
+  return { sobra, ok: sobra >= 0 };
+}
+function lancarCompra(c){
+  if(c.status==='Comprado'){ toast('Este item já está como comprado.'); return; }
+  if(!c.item || !(num(c.valor)>0) || mi(c.mes)==null){ toast('Preencha o item, o valor e o mês da compra antes de lançar.'); return; }
+  const n = compraN(c);
+  const d = { id:uid(), descricao:c.item, categoria: catNomes().includes('Outros') ? 'Outros' : (catNomes()[0]||'Outros'), sub:'', tipo: n>1?'Parcelada':'Única', valor: compraPorMes(c), inicio:c.mes, parcelas: n>1?n:null, fim:'' };
+  state.despesas.push(d); c.status = 'Comprado'; c.despesaId = d.id; save(); render();
+  toast(`"${c.item}" lançado em Despesas (categoria ${d.categoria}).`, 'Desfazer', ()=>{ state.despesas = state.despesas.filter(x=>x.id!==d.id); c.status = 'Pendente'; delete c.despesaId; save(); render(); });
+}
+let comprasResumoFn = null;
+SPEC.compras = {
+  icon:'shopping-cart', titulo:'Lista de compras', semMes:true,
+  ajuda:'Liste o que pretende comprar. "Cabe no mês?" compara cada item com a sobra do mês da compra (já descontando os itens de maior prioridade). Ao decidir comprar, use "Lançar": o item vira despesa e entra no orçamento.',
+  novo:()=>({ id:uid(), item:'', prioridade:'Média', valor:null, pagamento:'À vista', parcelas:null, mes:miStr(month), status:'Pendente' }),
+  add:'Adicionar item',
+  cols:[
+    { key:'item', label:'Item', type:'text', w:'min-w-[11rem]' },
+    { key:'prioridade', label:'Prioridade', type:'select', options:()=>['Alta','Média','Baixa'], w:'min-w-[7rem]' },
+    { key:'valor', label:'Valor total', type:'number', parse:parseNum, w:'min-w-[7rem]' },
+    { key:'pagamento', label:'Pagamento', type:'select', options:()=>['À vista','Parcelado'], w:'min-w-[7.5rem]',
+      onchange:(row,old,nu,tr)=>{ if(nu==='Parcelado' && !row.parcelas){ const p = tr.querySelector('[data-key="parcelas"]'); if(p) setTimeout(()=>p.focus(),0); } } },
+    { key:'parcelas', label:'Parcelas', type:'number', parse:v=>v===''?null:Math.max(1,Math.round(Number(v))), step:1, w:'min-w-[5rem]',
+      onchange:(row,old,nu,tr)=>{ if(nu!=null && nu>1 && row.pagamento!=='Parcelado'){ row.pagamento = 'Parcelado'; const s = tr.querySelector('[data-key="pagamento"]'); if(s) s.value = 'Parcelado'; } } },
+    { key:'mes', label:'Comprar em', type:'month', w:'min-w-[8.5rem]' },
+    { key:'status', label:'Status', type:'select', options:()=>['Pendente','Comprado'], w:'min-w-[7.5rem]' },
+    { key:'c_mes', label:'Por mês', type:'calc', calc:c=>num(c.valor)>0 ? brl(compraPorMes(c)) : '–' },
+    { key:'c_cabe', label:'Cabe no mês?', type:'calc', calc:c=>{ const r = compraCabe(c); return r ? `${r.ok?'Cabe':'Não cabe'} · sobra ${brl(r.sobra)}` : '–'; } },
+    { key:'lanca', label:'Lançar', type:'acao', icone:'corner-down-right', titulo:'Lançar como despesa', run:lancarCompra }
+  ],
+  rules:(r,tr)=>{ const pi = tr.querySelector('[data-key="parcelas"]'); if(pi) pi.style.opacity = r.pagamento==='Parcelado' ? '' : '.5'; },
+  depois:()=>{ if(comprasResumoFn) comprasResumoFn(); }
+};
+function viewCompras(){
+  const resumo = h('section','glass rounded-2xl grid grid-cols-2 lg:grid-cols-4 divide-x divide-hair overflow-hidden');
+  const desenha = ()=>{
+    const pend = state.compras.filter(c=>c.status!=='Comprado');
+    const por = p => sum(pend.filter(c=>c.prioridade===p), c=>num(c.valor));
+    const S = summary(month), imp = sum(pend, c=>compraImpacto(c, month));
+    resumo.replaceChildren(
+      kpiCell('shopping-cart','Total pendente', brl(sum(pend,c=>num(c.valor))), `${pend.length} ${pend.length===1?'item':'itens'} na lista`),
+      kpiCell('flag','Por prioridade', brl(por('Alta')), `alta · média ${brl(por('Média'))} · baixa ${brl(por('Baixa'))}`),
+      kpiCell('calendar-clock',`Impacto em ${fmtMes(month)}`, brl(imp), 'se comprar como planejado'),
+      kpiCell('wallet',`Sobra em ${fmtMes(month)}`, brl(S.saldo), `depois da lista: ${brl(round2(S.saldo-imp))}`));
+    icons();
+  };
+  comprasResumoFn = desenha; desenha();
+  return h('div','space-y-4 fade-in', resumo, viewTable('compras'));
+}
+
+/* ═════════════ RESERVA DE EMERGÊNCIA (valor digitado por você) ═════════════ */
+function reservaInfo(){
+  const R = state.reserva;
+  const media12 = round2(sum(Array.from({length:12},(_,i)=>summary(month+i)), S=>S.comprometido) / 12);
+  const custo = num(R.custoRef) > 0 ? num(R.custoRef) : media12;
+  const metaMeses = Math.max(1, num(R.metaMeses) || 6);
+  const meta = round2(custo * metaMeses), saldo = num(R.saldo);
+  return { R, media12, custo, metaMeses, meta, saldo, cobertura: custo>0 ? saldo/custo : 0, prog: meta>0 ? Math.min(1, saldo/meta) : 0, falta: Math.max(0, round2(meta-saldo)) };
+}
+const fmtMeses = v => (Math.round(v*10)/10).toString().replace('.',',');
+function viewReserva(){
+  const I = reservaInfo(), R = I.R, hoje = new Date().toISOString().slice(0,10);
+  const tom = I.cobertura >= I.metaMeses ? 'ok' : I.cobertura >= 1 ? 'warn' : 'bad', T = TONE[tom];
+  const inSaldo = h('input','fld num !h-11 !text-lg',{type:'number',step:'0.01',min:'0',inputmode:'decimal',placeholder:'0,00','aria-label':'Valor guardado hoje',value: R.historico.length ? R.saldo : ''});
+  const registrar = ()=>{
+    const v = Number(inSaldo.value);
+    if(inSaldo.value==='' || !isFinite(v) || v<0){ toast('Digite quanto você tem guardado hoje.'); return; }
+    R.saldo = round2(v);
+    const ult = R.historico[R.historico.length-1];
+    if(ult && ult.d===hoje) ult.v = R.saldo; else R.historico.push({ id:uid(), d:hoje, v:R.saldo });
+    R.historico.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+    save(); render(); toast('Saldo da reserva atualizado.');
+  };
+  inSaldo.addEventListener('keydown',e=>{ if(e.key==='Enter') registrar(); });
+  const nCampo = (label, key, hint, {step='1',min='0',factor=1}={}) => {
+    const el = h('input','fld num',{type:'number',step,min,inputmode:'decimal',value: num(R[key])>0 ? +(R[key]*factor).toFixed(4) : ''});
+    el.addEventListener('change',()=>{ const v = el.value==='' ? 0 : Number(el.value); R[key] = isFinite(v) && v>=0 ? v/factor : R[key]; save(); render(); });
+    return field(label, el, hint);
+  };
+  const ult = R.historico[R.historico.length-1];
+  const projecao = num(R.aporte)>0 && I.falta>0 ? (()=>{ const n = Math.ceil(I.falta/num(R.aporte)); return `Aportando ${brl(R.aporte)} por mês, a meta é atingida em ${n} ${n===1?'mês':'meses'} (${fmtMes(nowMonth()+n)}).`; })()
+    : (I.falta===0 && I.meta>0 ? 'Meta atingida.' : 'Informe um aporte mensal para ver quando a meta é atingida.');
+  const grafico = (()=>{
+    const pts = R.historico.slice(-24); if(pts.length<2) return h('p','text-xs text-dim','O gráfico aparece a partir da segunda atualização do saldo.');
+    const W = 300, H = 84, pad = 6, max = Math.max(...pts.map(p=>p.v), I.meta, 1) * 1.05;
+    const x = i => pad + i*(W-2*pad)/(pts.length-1), y = v => H - pad - v/max*(H-2*pad);
+    return sv('svg',{viewBox:`0 0 ${W} ${H}`,class:'w-full h-24',role:'img','aria-label':'Evolução do saldo da reserva'},
+      I.meta>0 ? sv('line',{x1:pad,x2:W-pad,y1:y(I.meta),y2:y(I.meta),style:'stroke:rgb(var(--income));stroke-dasharray:4 3;stroke-width:1.2'}) : null,
+      sv('polyline',{points:pts.map((p,i)=>`${x(i)},${y(p.v)}`).join(' '),fill:'none',style:'stroke:rgb(var(--accent-primary));stroke-width:2;stroke-linejoin:round;stroke-linecap:round'}),
+      ...pts.map((p,i)=>sv('circle',{cx:x(i),cy:y(p.v),r:2.6,style:'fill:rgb(var(--accent-primary))'},sv('title',{},`${p.d.split('-').reverse().join('/')}: ${brl(p.v)}`))));
+  })();
+  const sec = (icone,titulo,...kids) => h('section','glass rounded-2xl p-5', cardTitle(icone,titulo), ...kids);
+  return h('div','space-y-4 fade-in',
+    h('div','flex items-center gap-2 text-lg font-semibold tracking-tight', ic('piggy-bank','w-5 h-5 text-mut'), 'Reserva de emergência'),
+    h('div','grid gap-4 lg:grid-cols-2 items-start',
+      h('div','grid gap-4 items-start',
+        sec('wallet','Quanto tenho guardado',
+          h('div','flex items-end justify-between gap-3 flex-wrap', heroMoney(I.saldo,'text-[2.6rem] font-semibold'), pill(tom, tom==='ok'?'Meta atingida':tom==='warn'?'Em construção':'Reserva baixa')),
+          h('div','text-xs text-dim mt-1.5', ult ? `Atualizado em ${ult.d.split('-').reverse().join('/')}` : 'Ainda sem valor informado. Digite abaixo o que você tem guardado.'),
+          h('div','grid grid-cols-[minmax(0,1fr)_auto] gap-2 mt-4 items-end', field('Valor guardado hoje (R$)', inSaldo), h('button','btn btn-primary !h-11',{type:'button',onclick:registrar}, ic('check','w-4 h-4'),'Atualizar saldo')),
+          h('p','text-[0.7rem] text-dim mt-2','O app não acessa sua conta: você informa o valor, e cada atualização entra no histórico.')),
+        sec('history','Histórico do saldo', grafico,
+          R.historico.length ? h('div','mt-3 divide-y divide-hair max-h-56 overflow-y-auto scroll-thin', R.historico.slice().reverse().map(p=>
+            h('div','flex items-center justify-between gap-2 py-1.5 text-sm',
+              h('span','text-mut num',p.d.split('-').reverse().join('/')), h('span','num font-medium',brl(p.v)),
+              h('button','ibtn hover:!text-coral',{type:'button',title:'Remover este registro','aria-label':'Remover registro',onclick:()=>{
+                R.historico = R.historico.filter(x=>x.id!==p.id); const u = R.historico[R.historico.length-1]; R.saldo = u ? u.v : 0; save(); render();
+              }}, ic('trash-2','w-4 h-4')))))
+            : null)),
+      h('div','grid gap-4 items-start',
+        sec('target','Meta da reserva',
+          h('div','flex items-baseline justify-between gap-2 text-sm', h('span','text-mut',`Cobre ${fmtMeses(I.cobertura)} ${fmtMeses(I.cobertura)==='1'?'mês':'meses'} de despesas`), h('span','num text-mut',`meta: ${I.metaMeses} ${I.metaMeses===1?'mês':'meses'} = ${brl(I.meta)}`)),
+          h('div','track !h-3 mt-2', h('div','fill',{style:`width:${I.prog*100}%;background:linear-gradient(90deg, rgb(var(${T.a}) / .55), rgb(var(${T.b})))`})),
+          h('div','flex justify-between text-xs text-dim mt-1.5', h('span','num',pct(I.prog)+' da meta'), h('span','num', I.falta>0 ? `faltam ${brl(I.falta)}` : 'sem falta')),
+          h('div','grid sm:grid-cols-2 gap-4 mt-5',
+            nCampo('Meta (meses de despesas)','metaMeses','Autônomo/PJ: de 6 a 12 meses costuma ser o recomendado. CLT: de 3 a 6.'),
+            nCampo('Custo mensal de referência (R$)','custoRef',`Vazio = média do comprometido nos próximos 12 meses (${brl(I.media12)}).`,{step:'0.01'}),
+            nCampo('Aporte mensal planejado (R$)','aporte','Quanto pretende guardar por mês.',{step:'0.01'})),
+          h('p','text-sm text-mut mt-4',projecao)),
+        sec('info','Como ler',
+          h('p','text-sm text-mut','A reserva existe para cobrir o seu custo de vida se a renda cair. Abaixo de 1 mês fica em "baixa"; ao atingir a meta, "atingida". O valor é manual e fica só neste computador, criptografado.')))));
+}
+
+/* ═════════════ EXTRATO BANCÁRIO ═════════════
+   Importa CSV ou OFX baixado do internet banking, categoriza por palavras-chave (você corrige e o app aprende a regra) e compara
+   o gasto real de cada categoria com o que está planejado nas Despesas. Os arquivos são lidos aqui mesmo; nada é enviado a lugar nenhum. */
+const chaveDesc = d => normTxt(d).replace(/[0-9]+/g,' ').replace(/\b(compra|pagamento|pagto|pgto|pix|ted|doc|transferencia|transf|debito|credito|em|no|na|de|do|da|dos|das|enviada|recebida|enviado|recebido|cartao|elo|visa|master|mastercard|via|ref|para|a|e)\b/g,' ').split(/[^a-z]+/).filter(w=>w.length>2).slice(0,2).join(' ');
+const REGRAS_CAT = [
+  [/mercado(?! ?(livre|pago))|supermerc|atacad|assai|carrefour|padaria|acougue|hortifruti|ifood|restaurante|lanchonete|pizzaria|burger|cafeteria|sorvet|churrasc|rappi/, 'Alimentação'],
+  [/uber|\b99\b|taxi|combust|posto |shell|ipiranga|estaciona|pedagio|sem parar|conectcar|bilhete|metro|cptm|onibus/, 'Transporte'],
+  [/farmac|drogar|drogasil|raia|unimed|hospital|clinica|laborat|dentis|odonto|amil|sulamerica|plano de saude/, 'Saúde'],
+  [/enel|cpfl|\blight\b|energia|sabesp|copasa|saneamento|comgas|\bgas\b|\bclaro\b|\bvivo\b|\btim\b|\boi\b|internet|aluguel|condominio|iptu/, 'Moradia'],
+  [/fatura|cartao de credito|pagamento de fatura|pgto fatura/, 'Cartão de Crédito'],
+  [/contabil|contador|simples nacional|\bdas\b|darf|inss|cnpj|nota fiscal/, 'Empresa / Profissional'],
+  [/pensao/, 'Pensão / Família']
+];
+const CAT_ENTRADA = 'Entrada', CAT_IGNORAR = '(ignorar)';
+function categoriaAuto(desc, valor){
+  const E = state.extrato, k = chaveDesc(desc), ent = valor > 0;
+  const reg = k && E.regras[(ent?'+':'-')+k];
+  if(reg) return reg;
+  if(ent) return CAT_ENTRADA;
+  const t = normTxt(desc);
+  for(const [re,cat] of REGRAS_CAT) if(re.test(t)) return catNomes().includes(cat) ? cat : 'Outros';
+  return 'Outros';
+}
+const dataBR = d => d.split('-').reverse().join('/');
+function parseData(s){
+  s = String(s||'').trim(); let m;
+  if((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)) || (m = s.match(/^(\d{4})(\d{2})(\d{2})/))) return (+m[2]>=1 && +m[2]<=12 && +m[3]>=1 && +m[3]<=31) ? `${m[1]}-${m[2]}-${m[3]}` : null;
+  if((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))){ let y = +m[3]; if(y<100) y += 2000; return (+m[2]>=1 && +m[2]<=12 && +m[1]>=1 && +m[1]<=31) ? `${y}-${pad2(m[2])}-${pad2(m[1])}` : null; }
+  return null;
+}
+function parseValorBR(s){
+  let t = String(s==null?'':s).trim(); if(!t) return null;
+  const neg = /[-−–(]/.test(t) || /\s(D|DB|DEB)\s*$/i.test(t);
+  t = t.replace(/[^\d.,]/g,''); if(!/\d/.test(t)) return null;
+  const vi = t.lastIndexOf(','), po = t.lastIndexOf('.');
+  if(vi>=0 && po>=0) t = vi>po ? t.replace(/\./g,'').replace(',','.') : t.replace(/,/g,'');
+  else if(vi>=0) t = t.replace(/\./g,'').replace(',','.');
+  else if(po>=0 && ((t.match(/\./g)||[]).length>1 || /\.\d{3}$/.test(t))) t = t.replace(/\./g,'');
+  const v = parseFloat(t); if(!isFinite(v)) return null;
+  return round2(neg ? -Math.abs(v) : Math.abs(v));
+}
+function parseCsvRows(text, delim){
+  const rows = []; let row = [], cur = '', q = false;
+  const fim = ()=>{ row.push(cur); cur = ''; if(row.some(x=>x.trim()!=='')) rows.push(row); row = []; };
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if(ch==='"') q = true;
+    else if(ch===delim){ row.push(cur); cur = ''; }
+    else if(ch==='\n' || ch==='\r'){ if(ch==='\r' && text[i+1]==='\n') i++; fim(); }
+    else cur += ch;
+  }
+  if(cur!=='' || row.length) fim();
+  return rows;
+}
+function parseExtrato(text){
+  if(/<STMTTRN>/i.test(text)){   // OFX
+    const dec1 = s => s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+    const linhas = text.split(/<STMTTRN>/i).slice(1).map(b=>{
+      const tag = n => { const m = b.match(new RegExp('<'+n+'>\\s*([^<\\r\\n]*)','i')); return m ? dec1(m[1].trim()) : ''; };
+      return { d: parseData(tag('DTPOSTED')), desc: (tag('MEMO') || tag('NAME') || '').replace(/\s+/g,' '), valor: parseValorBR(tag('TRNAMT')) };
+    }).filter(x=>x.d && x.valor!=null);
+    return { formato:'OFX', linhas };
+  }
+  const amostra = text.split(/\r?\n/).filter(l=>l.trim()).slice(0,40);
+  const conta = c => amostra.reduce((t,l)=>t+(l.split(c).length-1),0);
+  const delim = [';','\t',','].map(c=>[c,conta(c)]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows = parseCsvRows(text, delim);
+  const N = c => normTxt(c);
+  let hi = -1;
+  for(let i=0;i<Math.min(rows.length,40);i++){ const c = rows[i].map(N); if(c.some(x=>/^(data|date|dt)/.test(x)) && c.some(x=>/valor|amount|credito|debito|entrada|saida|quantia/.test(x))){ hi = i; break; } }
+  let iD = -1, iV = -1, iC = -1, iB = -1, iT = [];
+  if(hi>=0){
+    const c = rows[hi].map(N);
+    iD = c.findIndex(x=>/^(data|date|dt)/.test(x));
+    iV = c.findIndex((x,i)=>/^(valor|amount|quantia)/.test(x) && i!==iD);
+    iC = c.findIndex(x=>/credito|entrada/.test(x)); iB = c.findIndex(x=>/debito|saida/.test(x));
+    iT = c.map((x,i)=>/descri|hist|lancamento|title|titulo|estabelec|memo|detalhe|nome|beneficiario/.test(x) && i!==iD && !/^(data|date|dt)/.test(x) && !/categoria|saldo/.test(x) ? i : -1).filter(i=>i>=0);
+    if(iV<0 && iC<0 && iB<0) hi = -1;
+  }
+  const linhas = [];
+  if(hi>=0){
+    for(const r of rows.slice(hi+1)){
+      const d = parseData(r[iD]); if(!d) continue;
+      let v = iV>=0 ? parseValorBR(r[iV]) : null;
+      if(v==null){ const cr = iC>=0 ? parseValorBR(r[iC]) : null, db = iB>=0 ? parseValorBR(r[iB]) : null; v = cr ? Math.abs(cr) : (db ? -Math.abs(db) : null); }
+      if(v==null) continue;
+      const desc = [...new Set(iT.map(i=>String(r[i]||'').replace(/\s+/g,' ').trim()).filter(Boolean))].join(' · ');
+      linhas.push({ d, desc, valor:v });
+    }
+    return { formato:'CSV', linhas };
+  }
+  for(const r of rows){   // sem cabeçalho: acha a data, o valor e o maior texto
+    const iDd = r.findIndex(x=>parseData(x)); if(iDd<0) continue;
+    const iVv = r.findIndex((x,i)=>i!==iDd && /^[\s\-−(R$]*\d[\d.,]*\)?\s*[-DC]*$/i.test(String(x).trim()) && parseValorBR(x)!=null);
+    if(iVv<0) continue;
+    const desc = r.filter((x,i)=>i!==iDd && i!==iVv).sort((a,b)=>b.length-a.length)[0] || '';
+    linhas.push({ d:parseData(r[iDd]), desc:desc.replace(/\s+/g,' ').trim(), valor:parseValorBR(r[iVv]) });
+  }
+  return { formato:'CSV', linhas, aviso: linhas.length ? 'O arquivo não tinha cabeçalho conhecido; confira as linhas de exemplo.' : '' };
+}
+async function lerTexto(file){
+  const buf = await file.arrayBuffer();
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf).replace(/^﻿/,''); }catch(e){ return new TextDecoder('windows-1252').decode(buf); }
+}
+const gastoDe = l => (l.cat && l.cat!==CAT_ENTRADA && l.cat!==CAT_IGNORAR) ? -l.valor : 0;
+const entradaDe = l => l.cat===CAT_ENTRADA ? l.valor : 0;
+const linhasDoMes = m => state.extrato.linhas.filter(l=>mi(l.d.slice(0,7))===m);
+function importarLinhas(nome, brutas, inverter){
+  const E = state.extrato, sinal = inverter ? -1 : 1;
+  const chave = l => `${l.d}|${l.valor}|${normTxt(l.desc)}`;
+  const ja = new Map(); for(const l of E.linhas) ja.set(chave(l), (ja.get(chave(l))||0)+1);
+  const vistos = new Map(); let dup = 0; const novas = [];
+  for(const b of brutas){
+    const l = { d:b.d, desc:b.desc||'(sem descrição)', valor: round2(b.valor*sinal) };
+    const k = chave(l), n = (vistos.get(k)||0)+1; vistos.set(k,n);
+    if(n <= (ja.get(k)||0)){ dup++; continue; }
+    novas.push({ id:uid(), d:l.d, desc:l.desc, valor:l.valor, cat:categoriaAuto(l.desc, l.valor) });
+  }
+  E.linhas.push(...novas); E.linhas.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  E.arquivos.push({ nome, em:new Date().toISOString().slice(0,10), n:novas.length });
+  save();
+  return { novas, dup };
+}
+function modalImportar(nome, res){
+  const ls = res.linhas, pos = ls.filter(l=>l.valor>0).length, neg = ls.filter(l=>l.valor<0).length;
+  const pareceFatura = ls.length>=5 && neg===0 && pos>0;
+  const cb = h('input',{type:'checkbox',class:'mt-0.5 w-4 h-4 accent-[rgb(var(--accent-primary))]'}); cb.checked = pareceFatura;
+  const info = h('div','text-sm text-mut'), amostra = h('div','mt-3 rounded-xl border border-hair divide-y divide-hair text-[0.8rem] max-h-44 overflow-auto scroll-thin');
+  const desenha = ()=>{
+    const s = cb.checked ? -1 : 1, ent = sum(ls.filter(l=>l.valor*s>0), l=>l.valor*s), sai = sum(ls.filter(l=>l.valor*s<0), l=>-l.valor*s);
+    const ds = ls.map(l=>l.d).sort();
+    info.replaceChildren(h('div','',`${ls.length} lançamentos · ${dataBR(ds[0])} a ${dataBR(ds[ds.length-1])} · formato ${res.formato}`),
+      h('div','mt-1',`Entradas ${brl(ent)} · Saídas ${brl(sai)}`));
+    amostra.replaceChildren(...ls.slice(0,6).map(l=>h('div','grid grid-cols-[4.5rem_minmax(0,1fr)_6.5rem] gap-2 px-3 py-1.5',
+      h('span','num text-dim',dataBR(l.d).slice(0,5)), h('span','truncate',l.desc||'(sem descrição)'), h('span',`num text-right ${l.valor*s<0?'':'text-mint'}`,brl(l.valor*s)))));
+  };
+  cb.addEventListener('change',desenha); desenha();
+  const m = openModal(['Importar extrato','max-w-xl'],
+    h('div','text-sm font-medium truncate mb-2',nome), info, amostra,
+    res.aviso ? h('p','text-xs text-amber mt-2',res.aviso) : null,
+    h('label','flex gap-2 items-start text-sm mt-4 cursor-pointer', cb, h('span','',
+      'Inverter os sinais ', h('span','text-dim text-xs block','Marque se os gastos aparecem como valores positivos (comum em fatura de cartão). Nas "Saídas" acima devem estar as compras.'))),
+    h('div','flex justify-end gap-2 mt-5',
+      h('button','btn',{type:'button',onclick:closeModal},'Cancelar'),
+      h('button','btn btn-primary',{type:'button',onclick:()=>{
+        const r = importarLinhas(nome, ls, cb.checked); closeModal();
+        if(r.novas.length) month = mi(r.novas.map(l=>l.d).sort().pop().slice(0,7));
+        render(); toast(`${r.novas.length} lançamento(s) importado(s)${r.dup?` · ${r.dup} já existia(m)`:''}.`);
+      }}, ic('download','w-4 h-4'),'Importar')));
+  return m;
+}
+function viewExtrato(){
+  const E = state.extrato, ls = linhasDoMes(month);
+  const fileIn = h('input',{type:'file',accept:'.csv,.ofx,.txt,text/csv',class:'hidden'});
+  fileIn.addEventListener('change', async()=>{
+    const f = fileIn.files[0]; if(!f) return;
+    try{
+      const res = parseExtrato(await lerTexto(f));
+      if(!res.linhas.length) toast(`Não consegui ler "${f.name}". Exporte do internet banking em CSV ou OFX (PDF não é suportado).`);
+      else modalImportar(f.name, res);
+    }catch(e){ toast('Não consegui ler esse arquivo.'); }
+    fileIn.value = '';
+  });
+  const ent = sum(ls, entradaDe), sai = sum(ls, gastoDe);
+  const real = new Map(); for(const l of ls){ const g = gastoDe(l); if(g) real.set(l.cat, round2((real.get(l.cat)||0)+g)); }
+  const plan = summary(month).porCat;
+  const cats = [...new Set([...real.keys(), ...[...plan.entries()].filter(([,e])=>e.v>0).map(([k])=>k)])]
+    .map(c=>({ c, real: real.get(c)||0, plan: (plan.get(c)||{v:0}).v })).sort((a,b)=>b.real-a.real || b.plan-a.plan);
+  const maxV = Math.max(...cats.map(x=>Math.max(x.real,x.plan)), 1);
+  const mesesComDados = [...new Set(E.linhas.map(l=>mi(l.d.slice(0,7))))].sort((a,b)=>b-a);
+  const busca = h('input','fld !h-9 max-w-xs',{type:'search',placeholder:'Buscar na descrição…','aria-label':'Buscar lançamentos',value:buscaExtrato});
+  const lista = h('div','divide-y divide-hair');
+  const opcoes = [CAT_ENTRADA, ...catNomes(), CAT_IGNORAR];
+  const desenhaLista = ()=>{
+    const q = normTxt(buscaExtrato);
+    const vis = ls.filter(l=>!q || normTxt(l.desc).includes(q)).slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+    lista.replaceChildren(...(vis.length ? vis.slice(0,500).map(l=>{
+      const sel = h('select','fld !h-8 !text-[0.78rem]',{'aria-label':'Categoria de '+l.desc}, [...new Set([...opcoes, l.cat])].map(o=>h('option',{value:o},o)));
+      sel.value = l.cat;
+      sel.addEventListener('change',()=>{
+        const k = chaveDesc(l.desc), sg = l.valor>0 ? '+' : '-'; let n = 0;
+        l.cat = sel.value;
+        if(k){ E.regras[sg+k] = sel.value; for(const o of E.linhas) if(o!==l && (o.valor>0)===(l.valor>0) && chaveDesc(o.desc)===k && o.cat!==sel.value){ o.cat = sel.value; n++; } }
+        save(); render(); if(n) toast(`${n} lançamento(s) parecido(s) também foram para "${sel.value}".`);
+      });
+      return h('div','rowh grid grid-cols-[4rem_minmax(0,1fr)_6.5rem_11rem_2rem] items-center gap-2 px-3 py-1',
+        h('span','num text-[0.78rem] text-dim',dataBR(l.d).slice(0,5)), h('span','truncate text-[0.8125rem]',{title:l.desc},l.desc),
+        h('span',`num text-right text-[0.8125rem] ${l.valor>0?'text-mint':''}`,brl(l.valor)), sel,
+        h('button','ibtn hover:!text-coral',{type:'button',title:'Remover lançamento','aria-label':'Remover lançamento',onclick:()=>{ E.linhas = E.linhas.filter(x=>x!==l); save(); render(); }}, ic('x','w-3.5 h-3.5')));
+    }) : [h('div','py-10 text-center text-sm text-dim', ls.length ? 'Nada encontrado para essa busca.' : 'Sem lançamentos neste mês.')]));
+  };
+  busca.addEventListener('input',()=>{ buscaExtrato = busca.value; desenhaLista(); });
+  desenhaLista();
+  const kpis = h('section','glass rounded-2xl grid grid-cols-2 lg:grid-cols-4 divide-x divide-hair overflow-hidden',
+    kpiCell('arrow-down-left','Entradas', brl(ent), `${ls.filter(l=>l.cat===CAT_ENTRADA).length} lançamento(s)`),
+    kpiCell('arrow-up-right','Saídas', brl(sai), 'categorias somadas'),
+    kpiCell('scale','Resultado do mês', brl(round2(ent-sai)), 'entradas − saídas'),
+    kpiCell('receipt-text','Lançamentos', String(ls.length), `${E.linhas.length} no total`));
+  const comp = h('section','glass rounded-2xl p-4',
+    cardTitle('bar-chart-3','Onde foi o dinheiro · planejado × real', h('span','text-xs text-dim font-medium',fmtMes(month))),
+    cats.length ? h('div','grid gap-1.5', [h('div','grid grid-cols-[minmax(0,1.3fr)_minmax(0,2fr)_6.2rem_6.2rem_6.2rem] gap-3 px-1.5 eyebrow !text-[0.62rem]', h('span','','Categoria'), h('span','',''), h('span','text-right','Planejado'), h('span','text-right','Real'), h('span','text-right','Diferença'))].concat(cats.map(x=>{
+      const dif = round2(x.real - x.plan);
+      return h('div','rowh grid grid-cols-[minmax(0,1.3fr)_minmax(0,2fr)_6.2rem_6.2rem_6.2rem] items-center gap-3 px-1.5',{title:`${x.c}: planejado ${brl(x.plan)} · real ${brl(x.real)}`},
+        h('span','truncate text-[0.8125rem]',x.c),
+        h('div','relative h-3', h('div','absolute inset-y-0 left-0 rounded-full',{style:`width:${x.plan/maxV*100}%;background:rgb(var(--fg) / .12)`}),
+          h('div','absolute left-0 rounded-full',{style:`top:2px;bottom:2px;width:${x.real/maxV*100}%;background:linear-gradient(90deg, rgb(var(--indigo) / .6), rgb(var(--indigo)))`})),
+        h('span','num text-[0.78rem] text-dim text-right',brl(x.plan)), h('span','num text-[0.8125rem] font-medium text-right',brl(x.real)),
+        h('span',`num text-[0.78rem] text-right ${dif>0.005?'text-coral':dif<-0.005?'text-mint':'text-dim'}`, dif>0.005?'+'+brl(dif):brl(dif)));
+    })))
+      : h('p','text-sm text-dim','Importe um extrato para comparar o que foi planejado com o que foi gasto de verdade.'),
+    h('p','text-[0.7rem] text-dim mt-3','"Planejado" vem das Despesas do mês (inclui parcelas e imposto). "Real" soma as saídas do extrato por categoria. Dica: se importar também a fatura do cartão, marque o pagamento da fatura como (ignorar) para não contar duas vezes.'));
+  const cab = h('div','flex flex-wrap items-end justify-between gap-3',
+    h('div','max-w-[70ch]',
+      h('div','flex items-center gap-2 text-lg font-semibold tracking-tight', ic('receipt-text','w-5 h-5 text-mut'),'Extrato bancário'),
+      h('p','text-sm text-mut mt-1','Baixe o extrato (CSV ou OFX) no internet banking e importe aqui. O arquivo é lido neste computador e fica criptografado junto com seus dados.')),
+    h('div','flex flex-wrap gap-2',
+      h('button','btn btn-primary',{type:'button',onclick:()=>fileIn.click()}, ic('upload','w-4 h-4'),'Importar extrato'), fileIn,
+      E.linhas.length ? h('button','btn btn-danger',{type:'button',onclick:()=>{
+        if(!confirm(`Apagar TODOS os ${E.linhas.length} lançamentos importados? Não afeta suas despesas e receitas.`)) return;
+        const bk = JSON.stringify(E); E.linhas = []; E.arquivos = []; E.regras = {}; save(); render();
+        toast('Extrato apagado.','Desfazer',()=>{ Object.assign(state.extrato, JSON.parse(bk)); save(); render(); });
+      }}, ic('trash-2','w-4 h-4'),'Apagar extrato') : null));
+  const aviso = !ls.length && mesesComDados.length ? h('div','glass rounded-2xl p-4 flex flex-wrap items-center gap-2 text-sm text-mut','Sem lançamentos em '+fmtMes(month)+'. Meses com extrato:',
+    ...mesesComDados.slice(0,8).map(m=>h('button','btn !h-7 !px-2.5 !text-[0.78rem]',{type:'button',onclick:()=>setMonth(m)},fmtMesCurto(m)))) : null;
+  return h('div','space-y-4 fade-in', cab, aviso, E.linhas.length ? kpis : null, E.linhas.length ? comp : null,
+    h('section','glass rounded-2xl overflow-hidden',
+      h('div','flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-hair', h('div','text-[0.8125rem] font-semibold text-mut flex items-center gap-2', ic('list','w-4 h-4 text-dim'),'Lançamentos de '+fmtMes(month)), busca),
+      E.linhas.length ? h('div','overflow-x-auto scroll-thin', h('div','min-w-[40rem]', lista)) : h('div','py-14 text-center text-sm text-dim','Nenhum extrato importado ainda. Use "Importar extrato".')));
+}
+let buscaExtrato = '';
+
+/* ═════════════ ASSISTENTE DE IA ═════════════
+   Conversa por texto ou voz. Ao perguntar, o app envia à API da Anthropic um resumo dos seus números (você vê exatamente o quê
+   em "Ver o que será enviado"). A chave de API é sua, fica criptografada com seus dados e nunca vai para os backups. */
+const IA_URL = 'https://api.anthropic.com/v1/messages';
+const IA_MODELOS = [['claude-sonnet-5-5','Sonnet 5.5 (equilibrado)'],['claude-haiku-5-5','Haiku 5.5 (mais barato)'],['claude-opus-5-5','Opus 5.5 (mais capaz)']];
+const GEMINI_MODELOS = [['gemini-2.5-flash','Gemini 2.5 Flash (rápido, plano grátis)'],['gemini-2.5-pro','Gemini 2.5 Pro (mais capaz)']];
+const PROVEDORES = [['local','Neste computador (grátis, sem chave)'],['gemini','Google Gemini (chave grátis)'],['anthropic','Claude (chave paga)']];
+const LOCAL_PREFERIDOS = ['qwen2.5:7b','llama3.2:3b'];
+const hostApp = () => window.__host || null;   // presente só no aplicativo instalado (Orcamento.exe); null no navegador
+const urlLocal = () => ((state.ia.urlLocal || (hostApp() && hostApp().iaUrl) || 'http://127.0.0.1:11434') + '').replace(/\/+$/,'');
+let chat = [], chatOcupado = false, rascunhoIA = '', reconhecimento = null, iaAbort = null, iaLenta = false, iaEnviarFn = null;
+let iaLocal = { estado:'verificando', modelos:[] };
+function contextoIA(){
+  const P = state.params, I = state.ia, hoje = new Date().toISOString().slice(0,10);
+  const ri = reservaInfo();
+  const ctx = {
+    hoje, mes_selecionado: miStr(month), moeda: 'BRL',
+    insights_automaticos: gerarInsights(month, 'tudo').map(i=>i.texto),
+    parametros: { aliquota_imposto_sobre_nota: P.aliquota, imposto_pago_meses_depois: P.lag, limite_atencao: P.limAtencao, limite_critico: P.limCritico },
+    receitas: state.receitas.map(r=>({ descricao:r.descricao, tipo:r.tipo, valor:r.valor, valor_da_nota:r.nota, tributavel:r.tributavel, inicio:r.inicio, fim:r.fim })),
+    despesas: state.despesas.map(d=>({ descricao:d.descricao, categoria:d.categoria, subcategoria:d.sub, tipo:d.tipo, valor_ou_parcela:d.valor, inicio:d.inicio, dia_vencimento:d.dia||null, parcelas:d.parcelas, fim:d.fim })),
+    ajustes_de_um_mes: state.ajustes.map(a=>({ despesa:(despDoAjuste(a)||{}).descricao||a.despesa, mes:a.mes, valor_real:a.valor, obs:a.obs })),
+    projecao_12_meses: Array.from({length:12},(_,i)=>{ const S = summary(month+i); return { mes:miStr(month+i), receita:S.receita, comprometido:S.comprometido, sobra:S.saldo, pct_comprometido: S.p==null?null:Math.round(S.p*1000)/10 }; }),
+    lista_de_compras: state.compras.map(c=>({ item:c.item, prioridade:c.prioridade, valor_total:c.valor, pagamento:c.pagamento, parcelas:c.parcelas, mes:c.mes, status:c.status })),
+    reserva_de_emergencia: { saldo_informado:ri.saldo, meta_em_meses:ri.metaMeses, custo_mensal_referencia:ri.custo, meta_em_reais:ri.meta, cobertura_em_meses: Math.round(ri.cobertura*10)/10 }
+  };
+  if(I.extrato!=='nao' && state.extrato.linhas.length){
+    const porMes = {};
+    for(const l of state.extrato.linhas){ const m = l.d.slice(0,7), o = porMes[m] || (porMes[m] = { entradas:0, saidas_por_categoria:{} }); o.entradas = round2(o.entradas + entradaDe(l)); const g = gastoDe(l); if(g) o.saidas_por_categoria[l.cat] = round2((o.saidas_por_categoria[l.cat]||0)+g); }
+    ctx.extrato_totais_por_mes = Object.fromEntries(Object.keys(porMes).sort().slice(-6).map(k=>[k,porMes[k]]));
+    if(I.extrato==='linhas'){
+      const corte = new Date(Date.now()-60*864e5).toISOString().slice(0,10);
+      ctx.extrato_linhas_ultimos_60_dias = state.extrato.linhas.filter(l=>l.d>=corte).slice(-150).map(l=>({ data:l.d, descricao:l.desc, valor:l.valor, categoria:l.cat }));
+    }
+  }
+  return ctx;
+}
+const SISTEMA_IA = `Você é o assistente financeiro pessoal do aplicativo "Orçamento comprometido". Responda SEMPRE em português do Brasil, de forma direta e prática.
+Regras: (1) use SOMENTE os números do contexto JSON abaixo; se faltar um dado, diga qual falta, não invente; (2) o campo "insights_automaticos" foi calculado pelo aplicativo e está correto: use-o como base e não refaça essas contas de cabeça; (3) separe fatos do contexto de estimativas suas; (4) mostre a conta quando recomendar algo; (5) seja breve (até ~200 palavras), com listas curtas e sem tabelas; (6) "comprometido" = despesas + imposto do mês; "sobra" = receita − comprometido; (7) não recomende produtos de investimento específicos e deixe claro, quando relevante, que é uma análise do orçamento e não aconselhamento financeiro profissional.`;
+function traduzErroIA(e){
+  const s = e && e.status, msg = (e && e.message) || '', p = state.ia.provedor;
+  if(e && e.name==='AbortError') return 'Resposta interrompida.';
+  if(p==='local'){
+    if(s===404 || /not found/i.test(msg)) return 'O modelo escolhido não está instalado na IA local. Escolha outro modelo ao lado ou instale-o.';
+    if(e instanceof TypeError) return 'Não consegui falar com a IA local. Ela só funciona com o aplicativo instalado com a opção "IA local" (ou com o Ollama ligado neste computador).';
+    return 'A IA local não conseguiu responder: ' + msg;
+  }
+  if(s===401 || (s===400 && /api key|api_key/i.test(msg))) return p==='gemini' ? 'O Google recusou a chave. Confira se ela foi colada inteira e está ativa.' : 'A Anthropic recusou a chave. Confira se ela foi colada inteira (começa com "sk-ant-") e se está ativa.';
+  if(s===403) return 'Esta chave não tem permissão para usar a API.';
+  if(s===429) return 'Limite de uso atingido. Aguarde um pouco e tente de novo.';
+  if(s===400 && /credit/i.test(msg)) return 'A conta está sem créditos. Adicione saldo no site do provedor.';
+  if(s===404) return 'O modelo escolhido não foi encontrado para esta chave. Troque o modelo ao lado.';
+  if(s>=500) return 'O serviço de IA está instável agora. Tente novamente em instantes.';
+  if(e instanceof TypeError) return 'Não consegui conectar ao serviço de IA. Verifique a internet.';
+  return 'Não foi possível obter a resposta: ' + msg;
+}
+/* Provedores. Cada um devolve o texto completo; o local também chama onDelta(textoParcial) enquanto escreve. */
+async function chamarIA(seq, sistema, sinal, onDelta){
+  const I = state.ia;
+  if(I.provedor==='local'){
+    const resp = await fetch(urlLocal()+'/api/chat', { method:'POST', signal:sinal, headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ model:I.modeloLocal, stream:true, messages:[{ role:'system', content:sistema }, ...seq], options:{ num_ctx:8192, temperature:0.3, num_predict:900 } }) });
+    if(!resp.ok) throw Object.assign(new Error((await resp.text()).slice(0,240)), { status:resp.status });
+    const rd = resp.body.getReader(), dc = new TextDecoder(); let buf = '', total = '';
+    for(;;){
+      const { done, value } = await rd.read(); if(done) break;
+      buf += dc.decode(value, { stream:true });
+      let i; while((i = buf.indexOf('\n')) >= 0){
+        const linha = buf.slice(0,i).trim(); buf = buf.slice(i+1); if(!linha) continue;
+        let j; try{ j = JSON.parse(linha); }catch(e){ continue; }
+        if(j.error) throw new Error(typeof j.error==='string' ? j.error : JSON.stringify(j.error));
+        if(j.message && j.message.content){ total += j.message.content; onDelta(total); }
+      }
+    }
+    return total.trim();
+  }
+  if(I.provedor==='gemini'){
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(I.geminiModelo)}:generateContent`, { method:'POST', signal:sinal,
+      headers:{ 'content-type':'application/json', 'x-goog-api-key':I.geminiChave },
+      body: JSON.stringify({ systemInstruction:{ parts:[{ text:sistema }] }, contents: seq.map(m=>({ role: m.role==='assistant'?'model':'user', parts:[{ text:m.content }] })), generationConfig:{ maxOutputTokens:1500, temperature:0.3 } }) });
+    const data = await resp.json().catch(()=>null);
+    if(!resp.ok) throw Object.assign(new Error((data && data.error && data.error.message) || ('HTTP '+resp.status)), { status:resp.status });
+    return (((data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || []).map(p=>p.text||'').join('\n')).trim();
+  }
+  const resp = await fetch(IA_URL, { method:'POST', signal:sinal,
+    headers:{ 'content-type':'application/json', 'x-api-key':I.chave, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model:I.modelo, max_tokens:1500, system:sistema, messages:seq }) });
+  const data = await resp.json().catch(()=>null);
+  if(!resp.ok) throw Object.assign(new Error((data && data.error && data.error.message) || ('HTTP '+resp.status)), { status:resp.status });
+  return ((data && data.content)||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+}
+const nomeModeloIA = () => { const I = state.ia; return I.provedor==='local' ? (I.modeloLocal||'IA local') : I.provedor==='gemini' ? I.geminiModelo : I.modelo; };
+function iaPronta(){
+  const I = state.ia;
+  if(I.provedor==='local') return !!I.modeloLocal && iaLocal.estado==='ligada';
+  return I.provedor==='gemini' ? !!I.geminiChave : !!I.chave;
+}
+async function perguntarIA(texto){
+  const I = state.ia; texto = String(texto||'').trim();
+  if(!texto || chatOcupado) return;
+  if(!I.avisoOk){ modalAvisoIA(()=>perguntarIA(texto)); return; }
+  if(!iaPronta()){ toast(I.provedor==='local' ? 'A IA local não está pronta. Veja o status ao lado.' : 'Cole sua chave de API ao lado para usar o assistente.'); return; }
+  chat.push({ role:'user', text:texto }); rascunhoIA = ''; chatOcupado = true; iaLenta = false;
+  const resp = { role:'assistant', text:'', modelo:nomeModeloIA(), gerando:true }; chat.push(resp); desenhaChat();
+  const seq = [];   // a API exige alternar usuário/assistente: junta mensagens seguidas do mesmo papel
+  for(const m of chat.filter(x=>!x.erro && x!==resp && x.text).slice(-16)){ const u = seq[seq.length-1]; if(u && u.role===m.role) u.content += '\n\n'+m.text; else seq.push({ role:m.role, content:m.text }); }
+  while(seq.length && seq[0].role!=='user') seq.shift();
+  iaAbort = new AbortController();
+  const lenta = setTimeout(()=>{ if(!resp.text){ iaLenta = true; desenhaChat(); } }, 8000);
+  try{
+    const sistema = SISTEMA_IA+'\n\nCONTEXTO (JSON):\n'+JSON.stringify(contextoIA());
+    const txt = await chamarIA(seq, sistema, iaAbort.signal, parcial=>{ resp.text = parcial; desenhaChat(); });
+    resp.text = txt || resp.text || '(resposta vazia)'; resp.gerando = false;
+    if(I.falar && resp.text) falarIA(resp.text);
+  }catch(e){
+    const aborto = e && e.name==='AbortError';
+    if(aborto && resp.text){ resp.gerando = false; resp.text += '\n\n(interrompida)'; }
+    else { chat.splice(chat.indexOf(resp), 1, { role:'assistant', erro:true, text:traduzErroIA(e) }); }
+  }
+  clearTimeout(lenta); iaAbort = null; chatOcupado = false; iaLenta = false; desenhaChat();
+}
+function falarIA(txt){
+  try{ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt.replace(/[*#_`]/g,'')); u.lang = 'pt-BR'; speechSynthesis.speak(u); }catch(e){}
+}
+function mdNodes(txt){
+  const out = []; let ul = null;
+  const inline = s => s.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map(p=>/^\*\*[^*]+\*\*$/.test(p) ? h('strong','font-semibold',p.slice(2,-2)) : p);
+  for(const raw of String(txt).split(/\r?\n/)){
+    const line = raw.trimEnd(), li = line.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/), hd = line.match(/^#{1,4}\s+(.*)$/);
+    if(li){ if(!ul){ ul = h('ul','list-disc pl-5 space-y-1 my-1.5'); out.push(ul); } ul.append(h('li','',inline(li[1]))); continue; }
+    ul = null; if(!line.trim()) continue;
+    out.push(hd ? h('div','font-semibold mt-2',inline(hd[1])) : h('p','my-1.5',inline(line)));
+  }
+  return out;
+}
+function desenhaChat(){
+  const box = $('#chatMsgs'); if(!box) return;
+  const pronta = iaPronta();
+  const vazio = !chat.length;
+  box.replaceChildren(...(vazio ? [h('div','h-full grid place-items-center text-center px-6 text-sm text-dim', h('div','max-w-sm',
+    h('div','mx-auto mb-3 w-10 h-10 rounded-full bg-fg/[0.06] grid place-items-center', ic('sparkles','w-5 h-5 text-mut')),
+    h('div','font-medium text-fg mb-1','Pergunte sobre o seu orçamento'),
+    h('div','', pronta ? 'Digite ou toque no microfone. Eu leio suas receitas, despesas, projeção, compras, reserva e extrato.' : 'Primeiro configure a IA no painel ao lado.')))]
+    : chat.map(m=>{
+        const esperando = m.gerando && !m.text;
+        return h('div',`flex ${m.role==='user'?'justify-end':'justify-start'}`,
+          h('div',`max-w-[85%] rounded-2xl px-3.5 py-2 text-[0.875rem] leading-relaxed ${m.role==='user'?'bg-[rgb(var(--accent-primary))] text-[rgb(var(--on-accent))]':m.erro?'bg-coral/10 text-coral ring-1 ring-coral/25':'bg-fg/[0.06]'}`,
+            m.role==='user' ? m.text
+              : esperando ? h('span','text-mut flex items-center gap-2', ic('loader','w-4 h-4 animate-spin'), iaLenta ? 'Carregando o modelo na memória (a primeira resposta demora mais)…' : 'Analisando…')
+              : [mdNodes(m.text), (!m.erro && !m.gerando && m.modelo) ? h('div','mt-2 pt-1.5 border-t border-fg/10 text-[0.68rem] text-dim',`Gerado por IA (${m.modelo}). Pode conter erros: confira os valores no Painel.`) : null]));
+      })));
+  icons(); box.scrollTop = box.scrollHeight;
+  const env = $('#chatEnviar');
+  if(env){
+    env.replaceChildren(ic(chatOcupado?'square':'send','w-4 h-4'), chatOcupado?'Parar':'Enviar'); icons();
+    env.onclick = chatOcupado ? ()=>{ if(iaAbort) iaAbort.abort(); } : ()=>{ if(iaEnviarFn) iaEnviarFn(); };
+  }
+}
+function modalContextoIA(){
+  const txt = JSON.stringify(contextoIA(), null, 2), local = state.ia.provedor==='local';
+  openModal(['O que a IA recebe','max-w-2xl'],
+    h('p','text-sm text-mut mb-3', local ? 'Este é o resumo que acompanha cada pergunta (mais a conversa). Com a IA local ele fica neste computador: nada vai para a internet.' : 'Este é o resumo que acompanha cada pergunta (mais a conversa) e vai para o provedor escolhido. Nada é enviado quando você não pergunta. A chave de API vai só no cabeçalho da requisição.'),
+    h('pre','text-[0.72rem] leading-snug bg-fg/[0.05] rounded-xl p-3 overflow-auto max-h-[55vh] whitespace-pre-wrap break-words num',txt),
+    h('div','flex justify-end mt-4', h('button','btn',{type:'button',onclick:closeModal},'Fechar')));
+}
+/* AVISO exibido antes do primeiro uso da IA (e sempre visível na tela do Assistente) */
+function avisoTextoIA(){
+  const p = state.ia.provedor;
+  return [
+    ['triangle-alert','A IA pode errar.', 'Ela pode errar contas, inventar valores ou interpretar mal uma pergunta. Confira sempre os números no Painel antes de decidir algo. Isto é uma análise do seu orçamento, não aconselhamento financeiro profissional.'],
+    p==='local' ? ['cpu','Roda neste computador.', 'Seus dados não saem da máquina. Em computadores mais fracos a resposta pode levar de alguns segundos a mais de um minuto, e a IA usa bastante memória enquanto responde. Ela só funciona com o aplicativo aberto e é encerrada quando você sai.']
+                : ['globe','Seus números vão para a internet.', p==='gemini' ? 'Ao perguntar, um resumo do seu orçamento é enviado ao Google (Gemini). No plano gratuito o Google pode usar o conteúdo para melhorar seus produtos.' : 'Ao perguntar, um resumo do seu orçamento é enviado à Anthropic (Claude). O uso é cobrado na sua conta.']
+  ];
+}
+function modalAvisoIA(depois){
+  openModal(['Antes de usar a IA','max-w-lg'],
+    h('div','space-y-3', avisoTextoIA().map(([i,t,d])=>h('div','flex gap-3',
+      h('span','mt-0.5 shrink-0 w-7 h-7 rounded-full grid place-items-center bg-amber/10 text-amber', ic(i,'w-4 h-4')),
+      h('div','text-sm', h('div','font-semibold',t), h('div','text-mut mt-0.5',d))))),
+    h('div','flex justify-end gap-2 mt-5',
+      h('button','btn',{type:'button',onclick:closeModal},'Cancelar'),
+      h('button','btn btn-primary',{type:'button',onclick:()=>{ state.ia.avisoOk = true; save(); closeModal(); if(depois) depois(); }}, ic('check','w-4 h-4'),'Entendi, continuar')));
+}
+function alternaMic(btn, ta){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return;
+  if(reconhecimento){ try{ reconhecimento.stop(); }catch(e){} return; }
+  const r = new SR(); reconhecimento = r; r.lang = 'pt-BR'; r.interimResults = true; r.continuous = false;
+  let final = '';
+  r.onresult = e => { let t = ''; for(let i=0;i<e.results.length;i++){ t += e.results[i][0].transcript; if(e.results[i].isFinal) final = t; } ta.value = t; rascunhoIA = t; };
+  r.onerror = e => { if(e.error!=='no-speech' && e.error!=='aborted') toast(e.error==='not-allowed' ? 'O microfone foi bloqueado. Libere o acesso ao microfone para este app.' : (e.error==='network' || e.error==='service-not-allowed') ? 'O ditado por voz não está disponível neste ambiente (precisa do serviço de voz do navegador e de internet). Você pode digitar.' : 'Não consegui ouvir ('+e.error+').'); };
+  r.onend = () => { reconhecimento = null; btn.classList.remove('!bg-[rgb(var(--accent-primary))]','!text-[rgb(var(--on-accent))]'); const t = (final || ta.value).trim(); if(t){ ta.value = ''; perguntarIA(t); } };
+  btn.classList.add('!bg-[rgb(var(--accent-primary))]','!text-[rgb(var(--on-accent))]');
+  try{ r.start(); }catch(e){ reconhecimento = null; }
+}
+/* IA local: verifica se o servidor responde e lista os modelos instalados */
+async function verificaIaLocal(forcar){
+  const I = state.ia;
+  if(forcar!==true && iaLocal.em && Date.now()-iaLocal.em < 15000){ desenhaStatusIA(); return; }   // não consulta de novo a cada tela
+  iaLocal = { estado:'verificando', modelos:[] }; desenhaStatusIA();
+  try{
+    const r = await fetch(urlLocal()+'/api/tags', { signal: AbortSignal.timeout(2500) });
+    const j = await r.json();
+    const lista = ((j && j.models)||[]).map(m=>m.name);
+    iaLocal = { estado:'ligada', modelos:lista };
+    if(lista.length && !lista.includes(I.modeloLocal)){ I.modeloLocal = LOCAL_PREFERIDOS.find(x=>lista.includes(x)) || lista[0]; save(); }
+  }catch(e){ iaLocal = { estado:'desligada', modelos:[] }; }
+  iaLocal.em = Date.now();
+  desenhaStatusIA();
+  if(tab==='ia') desenhaChat();
+}
+function desenhaStatusIA(){
+  const el = $('#iaStatus'); if(!el) return;
+  const I = state.ia, H = hostApp();
+  if(iaLocal.estado==='verificando'){ el.replaceChildren(pill('none','Verificando a IA local…')); icons(); return; }
+  if(iaLocal.estado==='ligada'){
+    if(!iaLocal.modelos.length){ el.replaceChildren(pill('warn','IA ligada, mas sem modelos'), h('p','text-[0.72rem] text-dim mt-2','Nenhum modelo instalado. Rode o instalador do Orçamento e marque "IA local", ou baixe um modelo no Ollama.')); icons(); return; }
+    const sel = h('select','fld mt-2',{'aria-label':'Modelo da IA local'}, iaLocal.modelos.map(m=>h('option',{value:m},m))); sel.value = I.modeloLocal;
+    sel.addEventListener('change',()=>{ I.modeloLocal = sel.value; save(); });
+    el.replaceChildren(pill('ok','IA local pronta'), sel); icons(); return;
+  }
+  el.replaceChildren(pill('bad','IA local indisponível'),
+    h('p','text-[0.72rem] text-dim mt-2', H && !H.iaUrl ? 'A IA local não está instalada neste computador. Rode o instalador do Orçamento de novo e marque "IA local".'
+      : H ? 'A IA local não respondeu. Ela liga junto com o aplicativo: feche o app de vez e abra de novo.'
+      : `Não encontrei a IA em ${urlLocal()}. Use o instalador completo do Orçamento (ele instala a IA) ou instale o Ollama (ollama.com) e baixe um modelo.`),
+    h('button','btn !h-8 !text-[0.78rem] mt-2',{type:'button',onclick:()=>verificaIaLocal(true)}, ic('refresh-cw','w-3.5 h-3.5'),'Verificar de novo')); icons();
+}
+function viewIA(){
+  const I = state.ia, SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ta = h('textarea','fld !h-auto py-2 resize-none',{rows:'2',placeholder:'Pergunte algo… ex.: "vale a pena parcelar a geladeira em 10x?"','aria-label':'Mensagem para o assistente'}); ta.value = rascunhoIA;
+  ta.addEventListener('input',()=>{ rascunhoIA = ta.value; });
+  iaEnviarFn = ()=>{ const t = ta.value; ta.value = ''; perguntarIA(t); };
+  ta.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); if(!chatOcupado) iaEnviarFn(); } });
+  const mic = h('button','btn !h-10 !w-10 !px-0',{type:'button',title:SR?'Falar (pt-BR)':'Este navegador não tem ditado por voz','aria-label':'Falar',disabled:!SR,onclick:()=>alternaMic(mic, ta)}, ic('mic','w-4 h-4'));
+  const rapido = [['Analisar meu mês',`Faça uma análise de ${fmtMesLongo(month)}: de 3 a 5 insights objetivos (riscos, folgas, pontos que merecem atenção em compras, reserva e extrato, se houver) e uma ação prática para cada.`],
+    ['Onde posso economizar?','Olhando minhas despesas e, se houver, o extrato, onde posso economizar sem mexer no essencial? Dê valores aproximados.'],
+    ['Como está minha reserva?','Como está minha reserva de emergência em relação ao meu custo de vida e quanto preciso aportar por mês para atingir a meta?'],
+    ['Posso comprar tudo da lista?','Considerando a sobra mensal e a lista de compras, em que ordem e meses faz sentido comprar os itens? Aponte conflitos.']];
+  /* provedor e credenciais */
+  const selProv = h('select','fld',{'aria-label':'Provedor de IA'}, PROVEDORES.map(([v,l])=>h('option',{value:v},l))); selProv.value = I.provedor;
+  selProv.addEventListener('change',()=>{ I.provedor = selProv.value; save(); render(); });
+  const campoChave = (rotulo, chaveProp, ph, dica, valida, aviso) => {
+    const el = h('input','fld',{type:'password',autocomplete:'off',spellcheck:'false',placeholder:I[chaveProp]?'••••••••••••  (chave salva)':ph,'aria-label':rotulo});
+    const salva = ()=>{ const v = el.value.trim(); if(!v) return; if(!valida(v)){ toast(aviso); return; } I[chaveProp] = v; save(); render(); toast('Chave salva (criptografada neste computador).'); };
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter') salva(); });
+    return h('div','',
+      field(rotulo, el, dica),
+      h('div','flex gap-2 mt-3', h('button','btn btn-primary !h-9',{type:'button',onclick:salva},'Salvar chave'),
+        I[chaveProp] ? h('button','btn btn-danger !h-9',{type:'button',onclick:()=>{ if(confirm('Remover a chave deste computador?')){ I[chaveProp] = ''; save(); render(); } }},'Remover') : null));
+  };
+  let conexao;
+  if(I.provedor==='local'){
+    conexao = h('div','', h('div','',{id:'iaStatus'}),
+      h('details','mt-3 text-[0.75rem] text-dim', h('summary','cursor-pointer hover:text-fg','Avançado'),
+        (()=>{ const u = h('input','fld mt-2',{type:'text',spellcheck:'false',placeholder:(hostApp()&&hostApp().iaUrl)||'http://127.0.0.1:11434',value:I.urlLocal,'aria-label':'Endereço da IA local'});
+               u.addEventListener('change',()=>{ I.urlLocal = u.value.trim(); save(); verificaIaLocal(true); }); return field('Endereço da IA local', u, 'Vazio = automático.'); })()));
+  } else if(I.provedor==='gemini'){
+    const selG = h('select','fld',{'aria-label':'Modelo Gemini'}, GEMINI_MODELOS.map(([v,l])=>h('option',{value:v},l))); selG.value = I.geminiModelo;
+    selG.addEventListener('change',()=>{ I.geminiModelo = selG.value; save(); });
+    conexao = h('div','space-y-3', campoChave('Chave de API do Google Gemini','geminiChave','AIza…','Crie grátis em aistudio.google.com › Get API key. Sem cartão de crédito.', v=>v.length>20, 'Esta chave parece curta demais.'), field('Modelo', selG));
+  } else {
+    const selM = h('select','fld',{'aria-label':'Modelo'}, IA_MODELOS.map(([v,l])=>h('option',{value:v},l))); selM.value = I.modelo;
+    selM.addEventListener('change',()=>{ I.modelo = selM.value; save(); });
+    conexao = h('div','space-y-3', campoChave('Chave de API da Anthropic','chave','sk-ant-…','Crie em console.anthropic.com › API Keys. O uso é cobrado na sua conta da Anthropic.', v=>/^sk-ant-/.test(v), 'Esta não parece uma chave da Anthropic (deve começar com "sk-ant-").'), field('Modelo', selM));
+  }
+  const selExt = h('select','fld',{'aria-label':'Extrato enviado à IA'}, [['nao','Não usar o extrato'],['totais','Só totais por categoria'],['linhas','Linhas dos últimos 60 dias']].map(([v,l])=>h('option',{value:v},l))); selExt.value = I.extrato;
+  selExt.addEventListener('change',()=>{ I.extrato = selExt.value; save(); });
+  const cbFala = h('input',{type:'checkbox',class:'w-4 h-4 accent-[rgb(var(--accent-primary))]'}); cbFala.checked = !!I.falar;
+  cbFala.addEventListener('change',()=>{ I.falar = cbFala.checked; if(!I.falar){ try{ speechSynthesis.cancel(); }catch(e){} } save(); });
+  const local = I.provedor==='local';
+  const chatCard = h('section','glass rounded-2xl flex flex-col min-h-[28rem] lg:min-h-0 overflow-hidden',
+    h('div','flex items-center justify-between gap-3 px-4 pt-4 pb-2 shrink-0', cardTitle('sparkles','Assistente'),
+      h('button','btn !h-8 !text-[0.78rem]',{type:'button',onclick:()=>{ if(iaAbort) iaAbort.abort(); chat = []; chatOcupado = false; try{ speechSynthesis.cancel(); }catch(e){} desenhaChat(); }}, ic('eraser','w-3.5 h-3.5'),'Limpar conversa')),
+    h('div','mx-4 mb-1 shrink-0 flex items-start gap-2 rounded-xl bg-amber/10 text-amber ring-1 ring-amber/20 px-3 py-2 text-[0.72rem] leading-snug', ic('triangle-alert','w-3.5 h-3.5 mt-px shrink-0'),
+      h('span','',`A IA pode errar contas e inventar valores: confira os números no Painel. Não é aconselhamento financeiro. ${local ? 'Roda neste computador; seus dados não saem da máquina.' : 'Seus números são enviados ao provedor quando você pergunta.'}`)),
+    h('div','flex-1 min-h-0 overflow-y-auto scroll-thin px-4 py-2 space-y-3',{id:'chatMsgs'}),
+    h('div','shrink-0 border-t border-hair p-3 space-y-2',
+      h('div','flex flex-wrap gap-1.5', rapido.map(([l,p])=>h('button','btn !h-7 !px-2.5 !text-[0.75rem]',{type:'button',onclick:()=>perguntarIA(p)},l))),
+      h('div','grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 items-end', ta, mic,
+        h('button','btn btn-primary !h-10',{type:'button',id:'chatEnviar'}, ic('send','w-4 h-4'),'Enviar'))));
+  const lado = h('div','grid gap-4 content-start min-h-0 overflow-y-auto scroll-thin',
+    h('section','glass rounded-2xl p-4', cardTitle('plug','Conexão'), field('Qual IA usar', selProv), h('div','mt-3', conexao)),
+    h('section','glass rounded-2xl p-4', cardTitle('shield-check','Privacidade'),
+      field('Extrato bancário usado pela IA', selExt),
+      h('p','text-[0.72rem] text-dim mt-2', local ? 'Com a IA local nada sai do computador. A IA só roda enquanto o aplicativo está aberto.' : 'Ao perguntar, um resumo dos seus números vai para o provedor. Nada é enviado sem você perguntar, e as chaves não entram nos backups.'),
+      h('button','btn !h-8 !text-[0.78rem] mt-3',{type:'button',onclick:modalContextoIA}, ic('eye','w-3.5 h-3.5'),'Ver o que a IA recebe'),
+      h('button','btn !h-8 !text-[0.78rem] mt-2 ml-2',{type:'button',onclick:()=>modalAvisoIA(null)}, ic('info','w-3.5 h-3.5'),'Ler o aviso')),
+    h('section','glass rounded-2xl p-4', cardTitle('volume-2','Voz'),
+      h('label','flex items-center gap-2 text-sm cursor-pointer', cbFala, 'Ler as respostas em voz alta'),
+      h('p','text-[0.72rem] text-dim mt-2', SR ? 'O botão do microfone dita a pergunta e a envia ao terminar. O ditado usa o reconhecimento de voz do navegador, que processa o áudio online.' : 'Este navegador não oferece ditado por voz; você ainda pode digitar.')));
+  afterRender.push(desenhaChat);
+  if(local) afterRender.push(()=>verificaIaLocal(false));
+  return h('div','grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_21rem] gap-4 fit-1row fade-in [&>*]:min-w-0', chatCard, lado);
+}
+
+/* ═════════════ Navegação, tema e render ═════════════ */
+let animarEntrada = true;   // a animação de entrada só roda ao trocar de aba (não a cada atualização da tela)
+function render(){
+  if(!state) return;
+  afterRender.length = 0;
+  $('#tabs').replaceChildren(...TABS.map(([k,l,i])=>
+    h('button','tab',{type:'button',role:'tab','aria-selected':String(k===tab),title:l,onclick:()=>{ if(tab!==k){ tab=k; animarEntrada = true; render(); $('#view').scrollTo({top:0}); } }}, ic(i,'w-4 h-4'), h('span','lbl',l))));
+  $('#mesLabel').textContent = fmtMesLongo(month);
+  $('#mes').value = miStr(month);
+  const escBox = $('#escopoSel');
+  escBox.style.display = tab==='painel' ? '' : 'none';
+  if(tab==='painel') escBox.replaceChildren(...ESCOPOS.map(([k,l])=>
+    h('button','esc',{type:'button',role:'radio','aria-checked':String(k===escopo),title:k==='tudo'?'Tudo: todas as receitas e despesas':k==='pessoal'?'Pessoal: sem a categoria Empresa / Profissional e sem o imposto':'Empresa: só Empresa / Profissional, com a receita medida pelo valor das notas',
+      onclick:()=>{ if(escopo!==k){ escopo = k; lsSet('cf-escopo',k); render(); } }}, l)));
+  bkAtualizaUI();
+  $('#view').replaceChildren(tab==='painel'?viewPainel(): tab==='projecao'?viewProjecao(): tab==='receitas'?viewReceitas(): tab==='config'?viewConfig()
+    : tab==='compras'?viewCompras(): tab==='reserva'?viewReserva(): tab==='extrato'?viewExtrato(): tab==='ia'?viewIA(): viewTable(tab));
+  if(!animarEntrada){ const raiz = $('#view').firstElementChild; if(raiz) raiz.classList.remove('fade-in'); }
+  animarEntrada = false;
+  icons();
+  afterRender.forEach(fn=>fn());
+}
+function setMonth(m){ month = m; render(); }
+$('#prev').addEventListener('click',()=>setMonth(month-1));
+$('#next').addEventListener('click',()=>setMonth(month+1));
+$('#hoje').addEventListener('click',()=>setMonth(nowMonth()));
+$('#bloquear').addEventListener('click',bloquear);
+const mesInput = $('#mes');
+mesInput.addEventListener('change',e=>{ const m = mi(e.target.value); if(m!=null) setMonth(m); else e.target.value = miStr(month); });
+mesInput.addEventListener('click',()=>{ try{ if(mesInput.showPicker) mesInput.showPicker(); }catch(e){} });
+if(mesInput.type!=='month'){ mesInput.classList.remove('opacity-0'); mesInput.classList.add('text-center','bg-transparent'); }
+window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+const temaBtn = $('#tema');
+const qs = new URLSearchParams(location.search);     // ?tema=dark&mes=2027-03&aba=projecao (só para pré-visualizar)
+if(mi(qs.get('mes'))!=null) month = mi(qs.get('mes'));
+if(TABS.some(t=>t[0]===qs.get('aba'))) tab = qs.get('aba');
+
+/* ═════════════ Seletor de temas ═════════════ */
+const TEMAS = [
+  { k:'crimson',   n:'Meio-Termo Crimson', d:'Ardósia fosca, destaque carmesim', cores:['#1E2128','#272B34','#E11D48'], meta:'#1E2128' },
+  { k:'editorial', n:'Claro Editorial',    d:'Off-white quente, rubi profundo',  cores:['#F6F5F3','#FFFFFF','#BE123C'], meta:'#F6F5F3' },
+  { k:'obsidian',  n:'Escuro Obsidian',    d:'Preto profundo, vermelho vibrante', cores:['#09090B','#121215','#F43F5E'], meta:'#09090B' },
+  { k:'ardosia',   n:'Ardósia Neutro',     d:'Meio-termo frio, azul celeste',     cores:['#1E293B','#293548','#38BDF8'], meta:'#1E293B' }
+];
+const temaValido = k => TEMAS.some(t=>t.k===k);
+let tema = lsGet(K_THEME);
+if(qs.get('tema') && temaValido(qs.get('tema'))) tema = qs.get('tema');
+if(!temaValido(tema)) tema = 'crimson';          // padrão inicial (também ignora valores antigos "light"/"dark")
+let animaTemaTimer = null;
+function aplicaTema(animar){
+  const t = TEMAS.find(x=>x.k===tema) || TEMAS[0];
+  const raiz = document.documentElement;
+  if(animar){ raiz.classList.add('tema-anim'); clearTimeout(animaTemaTimer); animaTemaTimer = setTimeout(()=>raiz.classList.remove('tema-anim'), 420); }
+  raiz.dataset.theme = t.k;
+  $('#metaTema').setAttribute('content', t.meta);
+  temaBtn.replaceChildren(ic('palette','w-4 h-4'));
+  const txt = `Tema: ${t.n} (clique para trocar)`;
+  temaBtn.title = txt; temaBtn.setAttribute('aria-label', txt); temaBtn.setAttribute('aria-haspopup','menu');
+  icons();
+}
+let temaMenu = null;
+function fechaMenuTema(){ if(temaMenu){ temaMenu.remove(); temaMenu = null; temaBtn.setAttribute('aria-expanded','false'); } }
+function abreMenuTema(){
+  fechaMenuTema();
+  const r = temaBtn.getBoundingClientRect();
+  temaMenu = h('div','glass rounded-xl p-1.5 fixed z-[95] w-[20.5rem] fade-in',{role:'menu','aria-label':'Escolher tema',style:`top:${Math.round(r.bottom+8)}px;right:${Math.max(8,Math.round(innerWidth-r.right))}px`},
+    h('div','eyebrow px-2.5 pt-1.5 pb-1','Tema'),
+    TEMAS.map(t=>h('button','w-full flex items-center gap-3 rounded-lg px-2.5 py-2 text-left rowh',{type:'button',role:'menuitemradio','aria-checked':String(t.k===tema),onclick:()=>{
+        tema = t.k; lsSet(K_THEME, tema); aplicaTema(true); fechaMenuTema();
+      }},
+      h('span','flex shrink-0', t.cores.map((c,i)=>h('i','w-5 h-5 rounded-full border border-white/20 -ml-1.5 first:ml-0',{style:`background:${c}`}))),
+      h('span','min-w-0 flex-1', h('span','block text-[0.8125rem] font-medium truncate',t.n), h('span','block text-[0.7rem] text-dim truncate',t.d)),
+      t.k===tema ? ic('check','w-4 h-4 text-indigo shrink-0') : h('span','w-4 shrink-0'))));
+  document.body.append(temaMenu); temaBtn.setAttribute('aria-expanded','true'); icons();
+}
+temaBtn.addEventListener('click', e=>{ e.stopPropagation(); temaMenu ? fechaMenuTema() : abreMenuTema(); });
+document.addEventListener('click', e=>{ if(temaMenu && !temaMenu.contains(e.target)) fechaMenuTema(); });
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') fechaMenuTema(); });
+window.addEventListener('resize', fechaMenuTema);
+
+/* PWA (só quando servido por http/https; o app do Windows roda direto do arquivo) */
+let promptInstalar = null;
+const instalarBtn = $('#instalar');
+const showInstall = on => { instalarBtn.classList.toggle('hidden', !on); instalarBtn.classList.toggle('inline-flex', on); };
+window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); promptInstalar = e; showInstall(true); });
+window.addEventListener('appinstalled', ()=>{ promptInstalar = null; showInstall(false); toast('App instalado.'); });
+instalarBtn.addEventListener('click', async()=>{ if(!promptInstalar) return; promptInstalar.prompt(); try{ await promptInstalar.userChoice; }catch(e){} promptInstalar = null; showInstall(false); });
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
+/* ═════════════ Início ═════════════ */
+aplicaTema();
+icons();
+if(!window.crypto || !crypto.subtle){
+  $('#lock').classList.remove('hidden'); $('#lock').classList.add('flex');
+  $('#lock').replaceChildren(h('div','max-w-sm text-center',h('h1','text-lg font-semibold mb-2','Navegador sem suporte'),h('p','text-sm text-mut','A proteção por senha precisa de um navegador atual (Edge ou Chrome), abrindo o app a partir de um arquivo local, de localhost ou de https.')));
+} else {
+  showLock(getAuth() ? 'unlock' : 'setup');
+}
+/* Selo "TESTE": aparece só quando a pasta do app tem "teste" no caminho (some sozinho ao ir para produção) */
+try{ if(/teste/i.test(decodeURIComponent(location.pathname))){ $('#seloTeste').classList.remove('hidden'); document.title += ' (TESTE)'; } }catch(e){}
+window.__app = { setMonth, summary, mi };
+})();
+</script>
+</body>
+</html>

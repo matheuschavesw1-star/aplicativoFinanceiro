@@ -1,0 +1,4 @@
+V2 COM IA (guardada para depois)
+- index-v2-com-ia.html: o app completo COM a aba Assistente (IA local via Ollama, Gemini ou Claude).
+- Para retomar: copie este arquivo por cima do index.html de uma pasta do app (ele e o index.html da versao V1 com a IA acrescentada).
+- ia-offline (Ollama + modelos qwen2.5:7b e llama3.2:3b, ~7,7 GB) continua em instalador\ia-offline (nao incluido no repositorio); pode ser movido para ca ou apagado.

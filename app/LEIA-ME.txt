@@ -1,0 +1,59 @@
+ORÇAMENTO COMPROMETIDO — aplicativo para Windows
+==================================================
+
+COMO ABRIR
+  Dê dois cliques em  Orcamento.exe
+  (se o Windows bloquear, use "Abrir Orcamento.bat" — faz a mesma coisa)
+
+  O app abre em uma janela própria, sem internet. Ele usa o Microsoft Edge
+  (que já vem no Windows 10/11) ou o Google Chrome.
+
+PRIMEIRO ACESSO
+  1) Crie uma senha (mínimo 8 caracteres).
+  2) Guarde o CÓDIGO DE RECUPERAÇÃO que aparece (anote ou salve o .txt em um lugar
+     seguro, FORA deste computador). Se esquecer a senha, ele é a única forma de abrir
+     os dados. Sem a senha e sem o código, ninguém consegue recuperar os dados.
+  3) Cadastre suas receitas e despesas nas abas "Receitas" e "Despesas".
+
+ONDE FICAM OS DADOS
+  Em  %LOCALAPPDATA%\Orcamento\perfil  (no seu usuário do Windows), criptografados
+  (AES-256) com a sua senha. Nada é enviado para a internet.
+  Copiar esta pasta para outro computador NÃO leva os dados — só o programa.
+  Para levar dados: Configurações > Exportar backup (o arquivo de backup NÃO é
+  criptografado: guarde com cuidado) e, no outro computador, Importar backup.
+
+BLOQUEIO
+  O app bloqueia sozinho após 15 minutos parado (ajustável em Configurações) e pelo
+  botão de cadeado no topo.
+
+COMPARTILHAR COM OUTRA PESSOA
+  Dê dois cliques em  criar-pacote-compartilhar.bat  e escolha o pendrive.
+  Ele copia o app SEM os seus dados (a pessoa começa com tudo vazio e cria a
+  própria senha).
+
+AVISO DO WINDOWS ("O Windows protegeu o computador")
+  Como o Orcamento.exe não é assinado digitalmente, o SmartScreen pode avisar na
+  primeira vez. Clique em "Mais informações" > "Executar assim mesmo", ou use o
+  "Abrir Orcamento.bat". O código-fonte do lançador está em ferramentas\Launcher.cs.
+
+REQUISITOS
+  Windows 10/11 com Microsoft Edge ou Google Chrome. Não precisa instalar nada.
+NOVIDADES DA VERSAO 5
+  - Painel: filtro Tudo / Pessoal / Empresa (no topo) e cartoes "Ja pago" / "Falta pagar".
+  - Despesas: coluna "Pago" (checklist do mes, inclui o imposto sobre nota).
+  - Projecao: "Simular nova compra" (nada e salvo).
+  - Configuracoes > Backup: pasta de backup automatico (ate 5 arquivos; NAO criptografados).
+  - Ajustes agora ligam a despesa pelo ID: renomear a despesa nao quebra o ajuste.
+  Seus dados antigos sao convertidos sozinhos na primeira abertura.
+
+NOVIDADES DA VERSAO 6
+- Aba Compras: lista de compras com prioridade e 'cabe no mes?'; botao Lancar cria a despesa.
+- Aba Reserva: reserva de emergencia com valor digitado por voce, meta em meses e historico.
+- Aba Extrato: importa CSV/OFX do banco, categoriza e compara planejado x real.
+- Aba Assistente: IA por texto ou voz. Exige chave de API da Anthropic (Assistente > Conexao); a chave nao vai para backups.
+- Parcelas: digitar o numero de parcelas ja troca o tipo para Parcelada.
+- Versao anterior guardada em backup-antes-v6.
+
+NOVIDADES DA VERSAO 7 (V1 final)
+- Abas Compras, Reserva e Extrato; quadro de Insights no Painel; coluna Venc. em Despesas.
+- Versao anterior guardada em backup-antes-v1-final. Seus dados nao foram alterados (ficam no perfil do app).
