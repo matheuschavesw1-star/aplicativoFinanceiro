@@ -48,7 +48,7 @@ if(!window.tailwind || !window.lucide){
   color-scheme:light;
   --bg-app:228 234 252; --bg-card:255 255 255; --bg-elevated:255 255 255;
   --border-subtle:rgb(255 255 255 / .75); --hair-line:rgb(40 50 100 / .10);
-  --text-primary:20 24 42; --text-secondary:72 80 108; --text-tertiary:112 120 148;
+  --text-primary:20 24 42; --text-secondary:66 76 102; --text-tertiary:96 108 132;
   --accent-primary:0 122 255; --accent-soft:rgb(0 122 255 / .16); --accent-support:175 82 222;
   --positive:34 176 78; --warning:240 138 0; --danger:238 58 50; --on-accent:255 255 255;
   --tab-active:rgb(255 255 255 / .92); --hl:rgb(255 255 255 / .9);
@@ -69,7 +69,7 @@ if(!window.tailwind || !window.lucide){
   color-scheme:dark;
   --bg-app:13 15 32; --bg-card:34 38 64; --bg-elevated:44 48 78;
   --border-subtle:rgb(255 255 255 / .12); --hair-line:rgb(255 255 255 / .09);
-  --text-primary:246 247 255; --text-secondary:178 184 210; --text-tertiary:132 138 168;
+  --text-primary:246 247 255; --text-secondary:204 211 228; --text-tertiary:167 177 200;
   --accent-primary:10 132 255; --accent-soft:rgb(10 132 255 / .24); --accent-support:191 90 242;
   --positive:50 210 92; --warning:255 160 12; --danger:255 78 66; --on-accent:255 255 255;
   --tab-active:rgb(255 255 255 / .14); --hl:rgb(255 255 255 / .10);
@@ -275,7 +275,17 @@ main table thead th{ font-weight:500; font-size:.76rem; color:rgb(var(--dim)); }
 .chip-purple{ background:rgb(var(--accent-support) / .16); color:rgb(var(--accent-support)); }
 .chip-gray{ background:var(--fill); color:rgb(var(--mut)); }
 .fade-b{ -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 1.3rem), transparent); mask-image:linear-gradient(to bottom, #000 calc(100% - 1.3rem), transparent); }
-</style>
+
+/* ═════════ Modo privacidade, foco visível e movimento reduzido ═════════ */
+.pv{ display:inline-block; }
+.priv .pv{ filter:blur(.36em); user-select:none; -webkit-user-select:none; transition:filter .18s; }
+.priv input[type=number]:not([data-key=parcelas]):not([data-key=dia]):not([aria-label^="N"]){ filter:blur(5px); transition:filter .18s; }
+.priv input[type=number]:focus{ filter:none !important; }   /* ao editar o campo, o valor aparece */
+#privBtn{ color:rgb(var(--mut)); }
+#privBtn:hover{ color:rgb(var(--fg)); background:var(--fill-2); }
+#privBtn[aria-pressed=true]{ background:rgb(var(--accent-primary) / .18); color:rgb(var(--accent-primary)); }
+:where(button,[role=tab],[role=radio],select,input,a,summary):focus-visible{ outline:2px solid rgb(var(--accent-primary)); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce){ *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; } }</style>
 <script src="seed.js"></script>
 </head>
 <body class="font-sans text-fg antialiased">
@@ -306,6 +316,7 @@ main table thead th{ font-weight:500; font-size:.76rem; color:rgb(var(--dim)); }
       <div class="tb-right">
         <div id="escopoSel" role="radiogroup" aria-label="Escopo do painel" class="ctl" style="display:none"></div>
         <button id="bkInd" type="button" class="bk-ind" style="display:none" title="Backup automático"></button>
+        <button id="privBtn" type="button" class="ctl !p-0 !w-[2.3rem] !h-[2.3rem] justify-center cursor-pointer" aria-pressed="false" title="Ocultar valores (Ctrl+Shift+P)" aria-label="Ocultar valores"><i data-lucide="eye" class="w-4 h-4"></i></button>
         <div class="ctl" role="group" aria-label="Mês de referência">
           <button id="prev" type="button" class="ibtn" aria-label="Mês anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
           <label class="relative px-2 min-w-[8.5rem] text-center text-sm font-medium cursor-pointer select-none">
@@ -790,7 +801,7 @@ function moneyParts(v){
 }
 function heroMoney(v, cls){
   const p = moneyParts(v);
-  return h('div',`num leading-none ${cls}`,
+  return h('div',`num leading-none pv ${cls}`,
     p.neg ? '−' : '',
     h('span','text-[.34em] mr-2 text-mut font-medium tracking-normal','R$'),
     p.int,
@@ -2405,6 +2416,70 @@ $('#prev').addEventListener('click',()=>setMonth(month-1));
 $('#next').addEventListener('click',()=>setMonth(month+1));
 $('#hoje').addEventListener('click',()=>setMonth(nowMonth()));
 $('#bloquear').addEventListener('click',bloquear);
+
+/* ═════════════ Modo privacidade ═════════════
+   Desfoca todo valor em reais na tela (texto, campos numéricos, dicas ao passar o mouse) para quem estiver olhando de perto.
+   Só afeta a exibição: os dados salvos e os backups continuam com os valores reais. Atalho: Ctrl+Shift+P. A escolha fica salva. */
+const MONEY_RE = /(?:[-−]\s?)?R\$\s?[-−]?\d[\d.]*(?:,\d+)?/g;
+const PV_SKIP = new Set(['SCRIPT','STYLE','TEXTAREA','OPTION','SELECT','TITLE','NOSCRIPT']);
+const SVG_NS = 'http://www.w3.org/2000/svg';
+let pvObs = null;
+function pvWrapText(root){
+  const alvo = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode:n=>{
+    const p = n.parentNode;
+    if(!p || p.nodeType!==1 || PV_SKIP.has(p.nodeName) || p.namespaceURI===SVG_NS || p.closest('.pv')) return NodeFilter.FILTER_REJECT;
+    return /R\$/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  } });
+  for(let n; (n = w.nextNode()); ) alvo.push(n);
+  for(const n of alvo){
+    const s = n.nodeValue, frag = document.createDocumentFragment(); let i = 0, achou = false;
+    for(const m of s.matchAll(MONEY_RE)){
+      achou = true;
+      if(m.index>i) frag.append(s.slice(i, m.index));
+      const sp = document.createElement('span'); sp.className = 'pv'; sp.setAttribute('aria-hidden','true'); sp.textContent = m[0]; frag.append(sp);
+      i = m.index + m[0].length;
+    }
+    if(achou){ if(i<s.length) frag.append(s.slice(i)); n.replaceWith(frag); }
+  }
+}
+function pvTitles(root, on){
+  const els = [...root.querySelectorAll('[title]')]; if(root.hasAttribute && root.hasAttribute('title')) els.push(root);
+  for(const el of els){
+    if(on){ const t = el.getAttribute('title'); if(el.dataset.t0===undefined && /R\$/.test(t)){ el.dataset.t0 = t; el.setAttribute('title', t.replace(MONEY_RE,'R$ ••••')); } }
+    else if(el.dataset.t0!==undefined){ el.setAttribute('title', el.dataset.t0); delete el.dataset.t0; }
+  }
+  for(const el of root.querySelectorAll('svg title')){      // dicas dentro de gráficos SVG
+    if(on){ if(el.dataset.t0===undefined && /R\$/.test(el.textContent)){ el.dataset.t0 = el.textContent; el.textContent = el.textContent.replace(MONEY_RE,'R$ ••••'); } }
+    else if(el.dataset.t0!==undefined){ el.textContent = el.dataset.t0; delete el.dataset.t0; }
+  }
+}
+function setPrivacidade(on, salvar=true){
+  document.documentElement.classList.toggle('priv', on);
+  if(salvar) lsSet('cf-priv', on ? '1' : '0');
+  const b = $('#privBtn');
+  if(b){ b.setAttribute('aria-pressed', String(on)); b.title = on ? 'Mostrar valores (Ctrl+Shift+P)' : 'Ocultar valores (Ctrl+Shift+P)'; b.setAttribute('aria-label', on ? 'Mostrar valores' : 'Ocultar valores'); b.replaceChildren(ic(on?'eye-off':'eye','w-4 h-4')); icons(); }
+  if(on){
+    pvWrapText(document.body); pvTitles(document.body, true);
+    if(!pvObs){
+      pvObs = new MutationObserver(ms=>{
+        for(const m of ms){
+          if(m.type==='attributes'){ pvTitles(m.target, true); continue; }
+          for(const n of m.addedNodes){
+            if(n.nodeType===1){ pvWrapText(n); pvTitles(n, true); }
+            else if(n.nodeType===3 && n.parentNode && n.parentNode.nodeType===1 && !n.parentNode.closest('.pv') && /R\$/.test(n.nodeValue)){ pvWrapText(n.parentNode); }
+          }
+        }
+      });
+      pvObs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['title'] });
+    }
+  } else {
+    if(pvObs){ pvObs.disconnect(); pvObs = null; }
+    pvTitles(document.body, false);
+  }
+}
+$('#privBtn').addEventListener('click',()=>setPrivacidade(!document.documentElement.classList.contains('priv')));
+window.addEventListener('keydown',e=>{ if(e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase()==='p'){ e.preventDefault(); setPrivacidade(!document.documentElement.classList.contains('priv')); } });
+setPrivacidade(lsGet('cf-priv')==='1', false);
 const mesInput = $('#mes');
 mesInput.addEventListener('change',e=>{ const m = mi(e.target.value); if(m!=null) setMonth(m); else e.target.value = miStr(month); });
 mesInput.addEventListener('click',()=>{ try{ if(mesInput.showPicker) mesInput.showPicker(); }catch(e){} });
