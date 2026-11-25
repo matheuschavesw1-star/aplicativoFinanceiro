@@ -285,7 +285,21 @@ main table thead th{ font-weight:500; font-size:.76rem; color:rgb(var(--dim)); }
 #privBtn:hover{ color:rgb(var(--fg)); background:var(--fill-2); }
 #privBtn[aria-pressed=true]{ background:rgb(var(--accent-primary) / .18); color:rgb(var(--accent-primary)); }
 :where(button,[role=tab],[role=radio],select,input,a,summary):focus-visible{ outline:2px solid rgb(var(--accent-primary)); outline-offset:2px; }
-@media (prefers-reduced-motion:reduce){ *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; } }</style>
+@media (prefers-reduced-motion:reduce){ *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; } }
+/* ═════════ Tabela compacta (Despesas): painel de detalhes por linha ═════════ */
+tbody tr.det{ border-top-width:0 !important; }
+.det > td{ padding:0 .75rem .85rem 2.4rem; }
+.det-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(10.5rem,1fr)); gap:.75rem; padding:.9rem; border-radius:1.1rem; background:var(--fill); }
+main table .det-grid .fld{ background:rgb(var(--s1) / .55); }
+main table .det-grid .fld:hover, main table .det-grid .fld:focus{ background:rgb(var(--s1) / .85); }
+.vchip{ display:inline-block; margin-left:.45rem; padding:.05rem .5rem; border-radius:9999px; font-size:.68rem; font-weight:500; background:var(--fill-2); color:rgb(var(--mut)); white-space:nowrap; }
+.vchip:empty{ display:none; }
+td:has(> .vchip:not(:empty)) .fld{ width:calc(100% - 4.6rem); display:inline-block; vertical-align:middle; }
+button[aria-expanded] svg{ transition:transform .2s; }
+button[aria-expanded=true] svg{ transform:rotate(180deg); }
+tr.row-saved{ background:var(--accent-soft); }
+tr.rowh{ transition:background .5s; }
+tr.rowh:focus-within{ background:var(--fill); }</style>
 <script src="seed.js"></script>
 </head>
 <body class="font-sans text-fg antialiased">
@@ -1430,12 +1444,12 @@ const SPEC = {
     add:'Adicionar despesa',
     cols:[
       { key:'pago', label:'Pago', type:'pago' },
-      { key:'descricao', label:'Descrição', type:'text', w:'min-w-[8.5rem]', onchange:(row,old,nu)=>{ state.ajustes.forEach(a=>{ if(a.despesaId===row.id || (!a.despesaId && old && a.despesa===old)) a.despesa = nu; }); } },
+      { key:'descricao', label:'Descrição', type:'text', w:'min-w-[9rem]', chip:'c_venc', onchange:(row,old,nu)=>{ state.ajustes.forEach(a=>{ if(a.despesaId===row.id || (!a.despesaId && old && a.despesa===old)) a.despesa = nu; }); } },
       { key:'categoria', label:'Categoria', type:'select', options:r=>[...new Set([...catNomes(), r.categoria].filter(Boolean))], w:'min-w-[11.5rem]',
         onchange:(row,old,nu,tr)=>{ if(!subsDe(row.categoria).includes(row.sub)) row.sub = ''; refazSub(tr,row); } },
       { key:'sub', label:'Subcategoria', type:'select', vazio:'— sem subcategoria —', options:r=>['', ...new Set([...subsDe(r.categoria), r.sub].filter(Boolean))], w:'min-w-[11.5rem]' },
       { key:'tipo', label:'Tipo', type:'select', options:()=>['Fixa','Parcelada','Única'], w:'min-w-[7rem]',
-        onchange:(row,old,nu,tr)=>{ if(nu==='Parcelada' && !row.parcelas){ const p = tr.querySelector('[data-key="parcelas"]'); if(p) setTimeout(()=>p.focus(),0); } } },
+        onchange:(row,old,nu,tr)=>{ if(nu==='Parcelada' && !row.parcelas){ if(tr.abrir) tr.abrir(); const p = tr.querySelector('[data-key="parcelas"]'); if(p) setTimeout(()=>p.focus(),0); } } },   // abre os detalhes e leva o cursor às parcelas
       { key:'valor', label:'Valor / parcela', type:'number', parse:parseNum, w:'min-w-[6.5rem]' },
       { key:'inicio', label:'Mês início', type:'month', w:'min-w-[8.5rem]' },
       { key:'dia', label:'Venc.', type:'number', parse:v=>v===''?null:Math.min(31,Math.max(1,Math.round(Number(v)))), step:1, ph:'dia', w:'min-w-[4.75rem]' },
@@ -1446,8 +1460,11 @@ const SPEC = {
       { key:'c_valor', label:'Valor no mês', type:'calc', calc:d=>brl(valorMes(d,month)) },
       { key:'c_parcela', label:'Parcela', type:'calc', calc:d=>parcelaLabel(d,month)||'–' },
       { key:'c_rest', label:'Restantes', type:'calc', xl:true, calc:d=>{ const r=mesesRestantes(d,month); return r==null?'–':String(r); } },
-      { key:'c_saldo', label:'Saldo futuro', type:'calc', xl:true, calc:d=>brl(saldoFuturo(d,month)) }
+      { key:'c_saldo', label:'Saldo futuro', type:'calc', xl:true, calc:d=>brl(saldoFuturo(d,month)) },
+      { key:'c_venc', label:'Vencimento', type:'calc', calc:d=>d.dia ? `dia ${d.dia}` : '' }   // etiqueta ao lado da descrição
     ],
+    // Tabela compacta: só o essencial na linha; o resto fica no painel de detalhes (botão ▾ da linha). Sem rolagem lateral em 1366 px.
+    layout:{ principal:['pago','descricao','categoria','tipo','valor','c_valor'], detalhe:['sub','inicio','dia','parcelas','fim','c_parcela','c_rest','c_saldo'] },
     rules:(r,tr)=>{
       const pi = tr.querySelector('[data-key="parcelas"]'); if(pi) pi.style.opacity = r.tipo==='Parcelada' ? '' : '.5';   // só esmaece; continua editável
       setDis(tr,'fim', r.tipo==='Única' || (r.tipo==='Parcelada' && !!r.parcelas));
@@ -1487,11 +1504,12 @@ function fillCalc(list, tbody){
   const spec = SPEC[list];
   tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
     const row = state[list].find(r=>r.id===tr.dataset.id); if(!row) return;
+    const sc = tr._scope || tr;     // "escopo" = linha principal + linha de detalhes (os campos são achados por data-key nas duas)
     spec.cols.filter(c=>c.type==='calc').forEach(c=>{
-      const td = tr.querySelector(`[data-calc="${c.key}"]`);
+      const td = sc.querySelector(`[data-calc="${c.key}"]`);
       if(td){ td.textContent = c.calc(row); td.classList.toggle('text-amber', c.key==='c_ativa' && td.textContent!=='Sim'); td.classList.toggle('text-coral', c.key==='c_cabe' && td.textContent.startsWith('Não')); }
     });
-    spec.rules(row, tr);
+    spec.rules(row, sc);
   });
 }
 function removeRow(list, row){
@@ -1500,48 +1518,74 @@ function removeRow(list, row){
   state[list].splice(idx,1); save(); render();
   toast('Linha removida.', 'Desfazer', ()=>{ state[list].splice(idx,0,row); save(); render(); });
 }
+/* Uma célula da tabela: "td" na linha principal ou um campo com rótulo no painel de detalhes (det=true) */
+function celula(col, row, cx, det){
+  const { list, spec, tbody, scope, tr } = cx;
+  if(col.type==='calc'){
+    return det ? h('div','', h('div','text-[0.7rem] text-dim mb-1 font-medium',col.label), h('div','num text-[0.85rem] text-mut',{'data-calc':col.key}))
+               : h('td',`num text-right text-mut px-3 py-2 whitespace-nowrap ${col.xl?'hidden min-[2000px]:table-cell':''}`,{'data-calc':col.key});
+  }
+  if(col.type==='acao'){          // botão de ação por linha (ex.: "Lançar como despesa")
+    return h('td','px-2 py-1.5 whitespace-nowrap',{'data-acao':col.key}, h('button','btn !h-8 !px-2.5 !text-[0.78rem]',{type:'button',title:col.titulo||'','aria-label':col.titulo||col.label,onclick:()=>col.run(row)}, col.icone?ic(col.icone,'w-3.5 h-3.5'):null, col.label));
+  }
+  if(col.type==='pago'){          // checklist: pago / a pagar no mês selecionado
+    const ativa = valorMes(row, month) !== 0;
+    const cb = h('input',{type:'checkbox','data-key':'pago','aria-label':`Marcar ${row.descricao||'despesa'} como paga em ${fmtMes(month)}`,class:'w-[1.1rem] h-[1.1rem] cursor-pointer accent-[rgb(var(--accent-primary))] disabled:opacity-30 disabled:cursor-default',disabled:!ativa,title:ativa?'Pago ✓':'Sem valor neste mês'});
+    cb.checked = ativa && ehPago(row.id, month);
+    cb.addEventListener('change',()=>{ marcaPago(row.id, month, cb.checked); });
+    return h('td','px-0 py-1.5 text-center w-10',cb);
+  }
+  let input;
+  if(col.type==='select'){
+    input = h('select','fld',{'data-key':col.key,'aria-label':col.label}, col.options(row).map(o=>{
+      const ov = typeof o==='object' ? o.v : o, ol = typeof o==='object' ? o.l : (o===''?(col.vazio||'— escolha —'):o);
+      return h('option',{value:ov}, ol);
+    }));
+    input.value = col.getValue ? col.getValue(row) : (row[col.key] ?? '');
+  } else if(col.type==='number'){
+    input = h('input','fld num',{type:'number','data-key':col.key,'aria-label':col.label,step:col.step||'0.01',inputmode:'decimal',placeholder:col.ph||'',value:row[col.key]==null?'':row[col.key]});
+  } else if(col.type==='month'){
+    input = h('input','fld',{type:'month','data-key':col.key,'aria-label':col.label,placeholder:'AAAA-MM',value:row[col.key]||''});
+  } else {
+    input = h('input','fld',{type:'text','data-key':col.key,'aria-label':col.label,value:row[col.key]||''});
+  }
+  input.addEventListener('change',()=>{
+    const old = row[col.key];
+    row[col.key] = col.parse ? col.parse(input.value) : input.value;
+    if(col.onchange) col.onchange(row, old, row[col.key], scope);
+    save(); fillCalc(list, tbody);
+    tr.classList.add('row-saved'); clearTimeout(tr._sv); tr._sv = setTimeout(()=>tr.classList.remove('row-saved'), 1100);   // confirma que a linha foi salva
+    if(spec.depois) spec.depois();
+  });
+  if(det) return h('label','block', h('span','block text-[0.7rem] text-dim mb-1 font-medium',col.label), input);
+  return h('td',`px-2 py-1.5 ${col.w||''}`, input, col.chip ? h('span','vchip',{'data-calc':col.chip}) : null);
+}
+const despExp = new Set();   // despesas com o painel de detalhes aberto (continua aberto ao trocar de tela)
 function viewTable(list){
-  const spec = SPEC[list];
+  const spec = SPEC[list], L = spec.layout;
+  const colsPrinc = L ? L.principal.map(k=>spec.cols.find(c=>c.key===k)) : spec.cols;
+  const colsDet = L ? L.detalhe.map(k=>spec.cols.find(c=>c.key===k)) : [];
+  const ncols = colsPrinc.length + 1 + (L ? 1 : 0);   // + botão de detalhes (se houver) + remover
   const tbody = h('tbody','divide-y divide-hair');
   state[list].forEach(row=>{
     const tr = h('tr','rowh',{'data-id':row.id});
-    spec.cols.forEach(col=>{
-      if(col.type==='calc'){ tr.append(h('td',`num text-right text-mut px-3 py-2 whitespace-nowrap ${col.xl?'hidden min-[2000px]:table-cell':''}`,{'data-calc':col.key})); return; }
-      if(col.type==='acao'){          // botão de ação por linha (ex.: "Lançar como despesa")
-        tr.append(h('td','px-2 py-1.5 whitespace-nowrap',{'data-acao':col.key}, h('button','btn !h-8 !px-2.5 !text-[0.78rem]',{type:'button',title:col.titulo||'','aria-label':col.titulo||col.label,onclick:()=>col.run(row)}, col.icone?ic(col.icone,'w-3.5 h-3.5'):null, col.label))); return;
-      }
-      if(col.type==='pago'){          // checklist: pago / a pagar no mês selecionado
-        const ativa = valorMes(row, month) !== 0;
-        const cb = h('input',{type:'checkbox','data-key':'pago','aria-label':`Marcar ${row.descricao||'despesa'} como paga em ${fmtMes(month)}`,class:'w-[1.1rem] h-[1.1rem] cursor-pointer accent-[rgb(var(--accent-primary))] disabled:opacity-30 disabled:cursor-default',disabled:!ativa,title:ativa?'Pago ✓':'Sem valor neste mês'});
-        cb.checked = ativa && ehPago(row.id, month);
-        cb.addEventListener('change',()=>{ marcaPago(row.id, month, cb.checked); });
-        tr.append(h('td','px-0 py-1.5 text-center w-10',cb)); return;
-      }
-      let input;
-      if(col.type==='select'){
-        input = h('select','fld',{'data-key':col.key,'aria-label':col.label}, col.options(row).map(o=>{
-          const ov = typeof o==='object' ? o.v : o, ol = typeof o==='object' ? o.l : (o===''?(col.vazio||'— escolha —'):o);
-          return h('option',{value:ov}, ol);
-        }));
-        input.value = col.getValue ? col.getValue(row) : (row[col.key] ?? '');
-      } else if(col.type==='number'){
-        input = h('input','fld num',{type:'number','data-key':col.key,'aria-label':col.label,step:col.step||'0.01',inputmode:'decimal',placeholder:col.ph||'',value:row[col.key]==null?'':row[col.key]});
-      } else if(col.type==='month'){
-        input = h('input','fld',{type:'month','data-key':col.key,'aria-label':col.label,placeholder:'AAAA-MM',value:row[col.key]||''});
-      } else {
-        input = h('input','fld',{type:'text','data-key':col.key,'aria-label':col.label,value:row[col.key]||''});
-      }
-      input.addEventListener('change',()=>{
-        const old = row[col.key];
-        row[col.key] = col.parse ? col.parse(input.value) : input.value;
-        if(col.onchange) col.onchange(row, old, row[col.key], tr);
-        save(); fillCalc(list, tbody);
-        if(spec.depois) spec.depois();
-      });
-      tr.append(h('td',`px-2 py-1.5 ${col.w||''}`,input));
-    });
+    const detId = 'det-'+row.id, det = L ? h('tr','det',{'data-det':row.id,id:detId}) : null;
+    let btn = null;
+    const alterna = open => { det.hidden = !open; btn.setAttribute('aria-expanded',String(open)); if(open) despExp.add(row.id); else despExp.delete(row.id); };
+    const scope = { tr, det, querySelector:s=>tr.querySelector(s) || (det && det.querySelector(s)), abrir:()=>{ if(det && det.hidden) alterna(true); } };
+    tr._scope = scope;
+    const cx = { list, spec, tbody, scope, tr };
+    colsPrinc.forEach(col=>tr.append(celula(col,row,cx,false)));
+    if(L){
+      const abre = despExp.has(row.id);
+      btn = h('button','ibtn',{type:'button','aria-expanded':String(abre),'aria-controls':detId,title:'Detalhes: subcategoria, início, vencimento, parcelas e fim','aria-label':`Detalhes de ${row.descricao||'despesa'}`,onclick:()=>alterna(det.hidden)}, ic('chevron-down','w-4 h-4'));
+      tr.append(h('td','pl-0 pr-0 w-px',btn));
+      det.hidden = !abre;
+      det.append(h('td',{colspan:String(ncols)}, h('div','det-grid', colsDet.map(col=>celula(col,row,cx,true)))));
+      det.addEventListener('keydown',e=>{ if(e.key==='Escape'){ alterna(false); btn.focus(); } });
+    }
     tr.append(h('td','pr-2 pl-0 w-px', h('button','ibtn hover:!text-coral',{type:'button',title:'Remover linha','aria-label':'Remover linha',onclick:()=>removeRow(list,row)}, ic('trash-2','w-4 h-4'))));
-    tbody.append(tr);
+    tbody.append(tr); if(det) tbody.append(det);
   });
   if(list==='despesas'){            // o imposto sobre nota também é uma conta a pagar no mês
     const imp = taxInfo(month).imposto;
@@ -1551,11 +1595,11 @@ function viewTable(list){
       cb.addEventListener('change',()=>marcaPago(IMPOSTO_ID, month, cb.checked));
       tbody.append(h('tr','rowh bg-fg/[0.025]',
         h('td','px-0 py-2 text-center w-10',cb),
-        h('td',{colspan:String(spec.cols.length-1)}, h('span','px-3 text-sm font-medium','Imposto sobre nota (calculado)'), h('span','text-xs text-dim',`  ·  ${fmtMes(month)}  ·  `), h('span','num text-sm text-amber font-semibold',brl(imp))),
+        h('td',{colspan:String(ncols-2)}, h('span','px-3 text-sm font-medium','Imposto sobre nota (calculado)'), h('span','text-xs text-dim',`  ·  ${fmtMes(month)}  ·  `), h('span','num text-sm text-amber font-semibold',brl(imp))),
         h('td','')));
     }
   }
-  const thead = h('thead','',h('tr','text-left border-b border-hair', spec.cols.map(c=>h('th',`eyebrow font-semibold ${c.type==='pago'?'px-1 text-center':'px-3'}${c.type==='acao'?' !text-transparent':''} py-3 whitespace-nowrap ${c.type==='calc'?'text-right':''} ${c.xl?'hidden min-[2000px]:table-cell':''}`,c.label)), h('th','')));
+  const thead = h('thead','',h('tr','text-left border-b border-hair', colsPrinc.map(c=>h('th',`eyebrow font-semibold ${c.type==='pago'?'px-1 text-center':'px-3'}${c.type==='acao'?' !text-transparent':''} py-3 whitespace-nowrap ${c.type==='calc'||c.type==='number'?'text-right':''} ${c.xl?'hidden min-[2000px]:table-cell':''}`,c.label)), L?h('th',''):null, h('th','')));
   const body = state[list].length
     ? h('div','overflow-x-auto scroll-thin', h('table','w-full text-sm',thead,tbody))
     : h('div','py-14 text-center text-sm text-dim','Nada cadastrado ainda.');
