@@ -2445,7 +2445,7 @@ function fechaMenuTema(){ if(temaMenu){ temaMenu.remove(); temaMenu = null; tema
 function abreMenuTema(){
   fechaMenuTema();
   const r = temaBtn.getBoundingClientRect();
-  temaMenu = h('div','glass rounded-xl p-1.5 fixed z-[95] w-[20.5rem] fade-in',{role:'menu','aria-label':'Escolher tema',style:`top:${Math.round(r.bottom+8)}px;right:${Math.max(8,Math.round(innerWidth-r.right))}px`},
+  temaMenu = h('div','glass rounded-xl p-1.5 fixed z-[95] w-[20.5rem] fade-in',{role:'menu','aria-label':'Escolher tema',style:`left:${Math.max(8,Math.round(Math.min(r.right+10, innerWidth - parseFloat(getComputedStyle(document.documentElement).fontSize)*20.5 - 8)))}px;bottom:${Math.max(8,Math.round(innerHeight-r.bottom))}px;max-height:calc(100vh - 16px);overflow:auto`},
     h('div','eyebrow px-2.5 pt-1.5 pb-1','Tema'),
     TEMAS.map(t=>h('button','w-full flex items-center gap-3 rounded-lg px-2.5 py-2 text-left rowh',{type:'button',role:'menuitemradio','aria-checked':String(t.k===tema),onclick:()=>{
         tema = t.k; lsSet(K_THEME, tema); aplicaTema(true); fechaMenuTema();
