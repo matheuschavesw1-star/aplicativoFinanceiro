@@ -3,7 +3,7 @@
    • Todos os arquivos do app (inclusive Tailwind, Lucide e fontes, que agora são locais) ficam em cache → abre offline.
    • Páginas: rede primeiro (pega atualizações), cache como reserva.
    Para publicar uma nova versão, aumente o número em VERSAO. */
-const VERSAO = 'v11';
+const VERSAO = 'v7';
 const CACHE_APP = `orcamento-app-${VERSAO}`;
 const FONTES = [
   'geist-latin-2','geist-latin-4','geist-latin-6','geist-latin-8',

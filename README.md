@@ -24,3 +24,6 @@ Desenvolvimento de app de finanças simples e que serve pra ajudar gente descont
 
 ## Privacidade
 Seus dados nunca vão para este repositório: o `seed.js` versionado é vazio, e os dados reais ficam só no seu computador. Arquivos de backup (`.json`) **não são criptografados**; guarde-os com cuidado.
+
+## Vertente `design-vidro` (nova interface)
+Redesenho completo no estilo "Vidro" (Liquid Glass), claro e escuro: menu lateral, título grande por tela, painel recomposto e janelas em vidro. Para usar, abra `app/index.html` no Edge ou no Chrome. Essa cópia começa vazia: para trazer seus dados, exporte um backup no app antigo (Configurações › Exportar backup) e importe no novo (Configurações › Importar backup).
