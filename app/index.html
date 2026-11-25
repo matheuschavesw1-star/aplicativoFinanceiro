@@ -32,6 +32,14 @@ tailwind.config = {
 };
 </script>
 <script src="vendor/lucide-0.469.0.min.js"></script>
+<script>
+/* Aviso amigável: se o index.html foi aberto sem as pastas vendor/ e icons/ (ex.: direto de dentro do .zip), explica o que fazer em vez de mostrar a tela quebrada. */
+if(!window.tailwind || !window.lucide){
+  document.addEventListener('DOMContentLoaded',function(){
+    document.body.innerHTML='<div style="font-family:system-ui,Segoe UI,sans-serif;max-width:34rem;margin:14vh auto;padding:0 1.5rem;line-height:1.55;color:#14182a"><h2 style="margin:0 0 .6rem">Faltam arquivos do aplicativo</h2><p>Você abriu o <b>index.html</b> sem as pastas que ficam ao lado dele (<b>vendor</b> e <b>icons</b>). Isso acontece quando o arquivo é aberto de <b>dentro do .zip</b>.</p><p>Clique com o botão direito no .zip, escolha <b>Extrair tudo</b> e abra o <b>app\\index.html</b> da pasta extraída.</p></div>';
+  });
+}
+</script>
 <style>
 /* ───────── TEMAS · VIDRO ─────────
    Dois temas (claro e escuro) no estilo "Liquid Glass": painéis translúcidos com desfoque sobre um fundo em degradê.
