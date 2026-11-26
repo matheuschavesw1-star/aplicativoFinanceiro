@@ -284,7 +284,7 @@ main table thead th{ font-weight:500; font-size:.76rem; color:rgb(var(--dim)); }
 #privBtn{ color:rgb(var(--mut)); }
 #privBtn:hover{ color:rgb(var(--fg)); background:var(--fill-2); }
 #privBtn[aria-pressed=true]{ background:rgb(var(--accent-primary) / .18); color:rgb(var(--accent-primary)); }
-:where(button,[role=tab],[role=radio],select,input,a,summary):focus-visible{ outline:2px solid rgb(var(--accent-primary)); outline-offset:2px; }
+:where(button,[role=tab],[role=radio],select,input,a,summary,[tabindex='0']):focus-visible{ outline:2px solid rgb(var(--accent-primary)); outline-offset:2px; }
 @media (prefers-reduced-motion:reduce){ *,*::before,*::after{ transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; } }
 /* ═════════ Tabela compacta (Despesas): painel de detalhes por linha ═════════ */
 tbody tr.det{ border-top-width:0 !important; }
@@ -330,6 +330,7 @@ tr.rowh:focus-within{ background:var(--fill); }</style>
       <div class="tb-right">
         <div id="escopoSel" role="radiogroup" aria-label="Escopo do painel" class="ctl" style="display:none"></div>
         <button id="bkInd" type="button" class="bk-ind" style="display:none" title="Backup automático"></button>
+        <button id="cmdBtn" type="button" class="ctl !px-3 gap-2 !h-[2.3rem] text-[0.8rem] text-mut cursor-pointer" title="Buscar e executar comandos (Ctrl+K)" aria-label="Abrir a paleta de comandos"><i data-lucide="search" class="w-4 h-4"></i><span class="hidden min-[1500px]:inline">Buscar</span><kbd class="hidden min-[1500px]:inline text-[0.66rem] px-1.5 py-px rounded-md bg-fg/10 text-dim font-sans">Ctrl K</kbd></button>
         <button id="privBtn" type="button" class="ctl !p-0 !w-[2.3rem] !h-[2.3rem] justify-center cursor-pointer" aria-pressed="false" title="Ocultar valores (Ctrl+Shift+P)" aria-label="Ocultar valores"><i data-lucide="eye" class="w-4 h-4"></i></button>
         <div class="ctl" role="group" aria-label="Mês de referência">
           <button id="prev" type="button" class="ibtn" aria-label="Mês anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
@@ -889,15 +890,18 @@ function miniProjecao(esc='tudo'){
     const parc = r.porTipo.Parcelada||0, fix = r.desp - parc, imp = r.tax.imposto;
     const T = TONE[r.st];
     const seg = (v,bg) => v>0 ? h('div','w-full',{style:`flex:${v} 1 0;min-height:1px;background:${bg}`}) : null;
-    return h('div','flex flex-col min-h-0 min-w-0 h-full',{title:`${fmtMesLongo(r.m)} — comprometido ${brl(r.comprometido)} de ${brl(r.receita)} (${r.p==null?'n/d':pct(r.p)})`},
+    const kfmt = v => v>=1000 ? `R$ ${(v/1000).toFixed(1).replace('.',',')}k` : brl(v);
+    return h('div','flex flex-col min-h-0 min-w-0 h-full rounded-lg',{title:`${fmtMesLongo(r.m)} — comprometido ${brl(r.comprometido)} de ${brl(r.receita)} (${r.p==null?'n/d':pct(r.p)})`,tabindex:'0',role:'img',
+      'aria-label':`${fmtMesLongo(r.m)}: ${r.p==null?'sem receita':pct(r.p)+' da receita comprometida'}; comprometido ${brl(r.comprometido)} de ${brl(r.receita)}; fixas ${brl(fix)}, parcelas ${brl(parc)}, imposto ${brl(imp)}`},
       h('div',`num text-[0.7rem] text-center font-semibold ${T.text}`, r.p==null?'–':pct(r.p)),
+      h('div','num text-[0.62rem] text-dim text-center leading-none mt-0.5 truncate', h('span','pv',kfmt(r.comprometido))),
       h('div','relative flex-1 min-h-0 mt-1',
         h('div','absolute inset-x-[18%] bottom-0 flex flex-col-reverse rounded-t-md overflow-hidden',{style:`height:${r.comprometido/max*100}%`},
           seg(fix,'rgb(var(--indigo))'), seg(parc,'rgb(var(--indigo) / .42)'), seg(imp,'rgb(var(--amber))')),
         r.receita>0 ? h('div','absolute inset-x-[4%] border-t-2 border-dashed border-income',{style:`bottom:${r.receita/max*100}%`}) : null),
       h('div','text-center text-[0.68rem] text-dim mt-1 font-medium', fmtMesCurto(r.m)));
   });
-  return h('div','grid grid-cols-6 gap-1.5 flex-1 min-h-0', cols);
+  return h('div','grid grid-cols-6 gap-1.5 flex-1 min-h-0',{role:'group','aria-label':'Comprometimento mensal nos próximos 6 meses (use Tab para ouvir cada mês)'}, cols);
 }
 
 const expandidas = new Set();   // categorias abertas no painel (clique)
@@ -975,7 +979,23 @@ function insightsCard(){
         h('span','text-[0.8rem] leading-snug text-fg/90 pt-0.5', i.texto)))));
 }
 
+function viewComecar(){
+  const passo = (n, titulo, texto, rotulo, acao) => h('div','flex items-center gap-4 p-4 rounded-2xl bg-fg/[0.045]',
+    h('span','chip chip-blue !w-10 !h-10 !rounded-xl text-[1rem] font-bold', String(n)),
+    h('div','flex-1 min-w-0', h('div','font-semibold text-[0.95rem]',titulo), h('div','text-[0.82rem] text-mut mt-0.5',texto)),
+    h('button','btn btn-primary shrink-0',{type:'button',onclick:acao}, rotulo));
+  return h('div','h-full grid place-items-center fade-in',
+    h('section','glass rounded-2xl p-8 w-[min(44rem,100%)]',
+      h('div','flex items-center gap-3 mb-1', h('span','side-logo', ic('wallet','w-5 h-5')), h('h2','text-[1.5rem] font-bold tracking-tight','Bem-vindo ao Orçamento')),
+      h('p','text-[0.95rem] text-mut mb-6 max-w-[52ch]','Em três passos você vê quanto da sua renda já está comprometida e quanto sobra. Seus dados ficam só neste computador, criptografados com a sua senha.'),
+      h('div','grid gap-3',
+        passo(1,'Cadastre sua receita','Salário, serviços ou benefícios: é a base de todos os cálculos.','Cadastrar receita',()=>{ irPara('receitas'); setTimeout(()=>modalReceita(null),60); }),
+        passo(2,'Lance suas despesas','Fixas, parceladas e únicas, com o dia de vencimento.','Lançar despesa',()=>{ irPara('despesas'); clicaBotao('Adicionar despesa', focaUltima('descricao')); }),
+        passo(3,'Acompanhe','Painel, projeção, insights, compras e reserva se atualizam sozinhos.','Ver a projeção',()=>irPara('projecao'))),
+      h('p','text-[0.78rem] text-dim mt-5','Já usa o app em outro computador? Em Configurações › Importar backup você traz tudo de uma vez. ', h('button','underline underline-offset-2 hover:text-fg',{type:'button',onclick:()=>irPara('config')},'Abrir Configurações'),'. Dica: Ctrl+K busca qualquer tela ou ação.')));
+}
 function viewPainel(){
+  if(!state.receitas.length && !state.despesas.length) return viewComecar();
   const S = summary(month, escopo), Sn = summary(month+1, escopo), P = state.params, T = TONE[S.st], T2 = S.tax, pg = resumoPagamentos(S);
   const root = h('div','grid grid-cols-1 lg:grid-cols-12 gap-4 fit-painel fade-in [&>*]:min-w-0');
 
@@ -1001,7 +1021,7 @@ function viewPainel(){
         h('div',`text-[0.8rem] font-semibold text-center ${T.text}`, STATUS_TXT[S.st].frase),
         h('div','text-[0.66rem] text-dim text-center mt-0.5',`atenção ≥ ${pct(P.limAtencao)} · crítico ≥ ${pct(P.limCritico)}`))),
     h('div','pt-4 shrink-0',
-      h('div','flex gap-[3px] h-3',
+      h('div','flex gap-[3px] h-3',{role:'img','aria-label':'Composição da receita do mês: '+(segs.map(([l,v])=>`${l} ${brl(v)}`).join('; ')||'sem dados')},
         segs.length ? segs.map(([l,v,c,o])=>h('div','h-full rounded-[5px] first:rounded-l-full last:rounded-r-full',{title:`${l}: ${brl(v)}`,style:`flex:${v/totalRef} 1 0;background:rgb(var(${c}) / ${o})`})) : h('div','h-full w-full rounded-full bg-fg/[0.07]')),
       h('div','mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.74rem]',
         segs.map(([l,v,c,o])=>h('div','flex items-center gap-1.5 text-mut',
@@ -1602,7 +1622,11 @@ function viewTable(list){
   const thead = h('thead','',h('tr','text-left border-b border-hair', colsPrinc.map(c=>h('th',`eyebrow font-semibold ${c.type==='pago'?'px-1 text-center':'px-3'}${c.type==='acao'?' !text-transparent':''} py-3 whitespace-nowrap ${c.type==='calc'||c.type==='number'?'text-right':''} ${c.xl?'hidden min-[2000px]:table-cell':''}`,c.label)), L?h('th',''):null, h('th','')));
   const body = state[list].length
     ? h('div','overflow-x-auto scroll-thin', h('table','w-full text-sm',thead,tbody))
-    : h('div','py-14 text-center text-sm text-dim','Nada cadastrado ainda.');
+    : h('div','py-14 grid place-items-center text-center px-6', h('div','max-w-sm',
+        h('span','chip chip-gray mx-auto !w-11 !h-11 !rounded-2xl mb-3', ic(spec.icon,'!w-5 !h-5')),
+        h('div','font-semibold text-[0.95rem]','Nada cadastrado ainda'),
+        h('p','text-sm text-mut mt-1', ({ despesas:'Lance contas fixas, parceladas ou únicas. O Painel, a projeção e os insights se montam sozinhos.', compras:'Liste o que pretende comprar e veja se cabe na sobra do mês.', ajustes:'Use para mudar o valor de UMA despesa em UM mês (conta de luz variável, aluguel parcial…).' })[list] || ''),
+        h('button','btn btn-primary mt-4',{type:'button',onclick:()=>{ state[list].push(spec.novo()); save(); render(); }}, ic('plus','w-4 h-4'), spec.add)));
   fillCalc(list, tbody);
   return h('div','space-y-4 fade-in',
     h('div','flex flex-wrap items-end justify-between gap-3',
@@ -2486,18 +2510,19 @@ function pvWrapText(root){
     if(achou){ if(i<s.length) frag.append(s.slice(i)); n.replaceWith(frag); }
   }
 }
+const PV_ATTRS = ['title','aria-label'];
 function pvTitles(root, on){
-  const els = [...root.querySelectorAll('[title]')]; if(root.hasAttribute && root.hasAttribute('title')) els.push(root);
-  for(const el of els){
-    if(on){ const t = el.getAttribute('title'); if(el.dataset.t0===undefined && /R\$/.test(t)){ el.dataset.t0 = t; el.setAttribute('title', t.replace(MONEY_RE,'R$ ••••')); } }
-    else if(el.dataset.t0!==undefined){ el.setAttribute('title', el.dataset.t0); delete el.dataset.t0; }
+  const els = [...root.querySelectorAll('[title],[aria-label]')]; if(root.hasAttribute && (root.hasAttribute('title') || root.hasAttribute('aria-label'))) els.push(root);
+  for(const el of els) for(const a of PV_ATTRS){
+    const k = 'o_' + a.replace('-','_'), v = el.getAttribute(a);
+    if(on){ if(v && el.dataset[k]===undefined && /R\$/.test(v)){ el.dataset[k] = v; el.setAttribute(a, v.replace(MONEY_RE,'R$ ••••')); } }
+    else if(el.dataset[k]!==undefined){ el.setAttribute(a, el.dataset[k]); delete el.dataset[k]; }
   }
   for(const el of root.querySelectorAll('svg title')){      // dicas dentro de gráficos SVG
     if(on){ if(el.dataset.t0===undefined && /R\$/.test(el.textContent)){ el.dataset.t0 = el.textContent; el.textContent = el.textContent.replace(MONEY_RE,'R$ ••••'); } }
     else if(el.dataset.t0!==undefined){ el.textContent = el.dataset.t0; delete el.dataset.t0; }
   }
-}
-function setPrivacidade(on, salvar=true){
+}function setPrivacidade(on, salvar=true){
   document.documentElement.classList.toggle('priv', on);
   if(salvar) lsSet('cf-priv', on ? '1' : '0');
   const b = $('#privBtn');
@@ -2514,7 +2539,7 @@ function setPrivacidade(on, salvar=true){
           }
         }
       });
-      pvObs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['title'] });
+      pvObs.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['title','aria-label'] });
     }
   } else {
     if(pvObs){ pvObs.disconnect(); pvObs = null; }
@@ -2524,6 +2549,78 @@ function setPrivacidade(on, salvar=true){
 $('#privBtn').addEventListener('click',()=>setPrivacidade(!document.documentElement.classList.contains('priv')));
 window.addEventListener('keydown',e=>{ if(e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase()==='p'){ e.preventDefault(); setPrivacidade(!document.documentElement.classList.contains('priv')); } });
 setPrivacidade(lsGet('cf-priv')==='1', false);
+
+/* ═════════════ Paleta de comandos (Ctrl+K) ═════════════
+   Busca rápida para ir a qualquer tela, achar uma despesa ou compra e executar ações comuns. ↑/↓ escolhem, Enter executa, Esc fecha. */
+let cmdEl = null, cmdVolta = null;
+function irPara(k){ tab = k; animarEntrada = true; render(); $('#view').scrollTo({top:0}); }
+const clicaBotao = (texto, apos) => setTimeout(()=>{ const b = [...document.querySelectorAll('main button')].find(x=>x.textContent.includes(texto)); if(b) b.click(); if(apos) setTimeout(apos,120); }, 60);
+const focaUltima = campo => () => { const t = [...document.querySelectorAll('main tbody tr[data-id]')].pop(); if(t){ const el = t.querySelector(`[data-key="${campo}"]`); if(el) el.focus(); } };
+function achaLinha(lista, id){
+  setTimeout(()=>{ const tr = document.querySelector(`main tbody tr[data-id="${id}"]`); if(!tr) return; tr.scrollIntoView({block:'center'}); tr.classList.add('row-saved'); setTimeout(()=>tr.classList.remove('row-saved'),1400); const el = tr.querySelector('input[type=text]'); if(el) el.focus(); }, 80);
+}
+function comandos(){
+  const C = [], add = (grupo, rotulo, kw, run, atalho) => C.push({ grupo, rotulo, kw:kw||'', run, atalho:atalho||'' });
+  TABS.forEach(([k,l,i,g])=>add('Ir para', l, g+' '+k, ()=>irPara(k)));
+  add('Criar','Adicionar despesa','nova despesa lancar conta',()=>{ irPara('despesas'); clicaBotao('Adicionar despesa', focaUltima('descricao')); });
+  add('Criar','Adicionar receita','nova receita salario',()=>{ irPara('receitas'); setTimeout(()=>modalReceita(null),60); });
+  add('Criar','Adicionar item à lista de compras','nova compra desejo',()=>{ irPara('compras'); clicaBotao('Adicionar item', focaUltima('item')); });
+  add('Criar','Atualizar saldo da reserva','reserva guardado emergencia',()=>{ irPara('reserva'); setTimeout(()=>{ const i = document.querySelector('input[aria-label^="Valor guardado"]'); if(i) i.focus(); },80); });
+  add('Criar','Importar extrato bancário','csv ofx banco',()=>{ irPara('extrato'); clicaBotao('Importar extrato'); });
+  add('Ações','Ocultar ou mostrar valores','privacidade esconder olho',()=>setPrivacidade(!document.documentElement.classList.contains('priv')),'Ctrl+Shift+P');
+  add('Ações','Mês anterior','voltar',()=>setMonth(month-1));
+  add('Ações','Próximo mês','avancar',()=>setMonth(month+1));
+  add('Ações','Ir para o mês atual','hoje',()=>setMonth(nowMonth()));
+  ESCOPOS.forEach(([k,l])=>add('Ações',`Painel: ver ${l}`,'escopo pessoal empresa tudo',()=>{ escopo = k; lsSet('cf-escopo',k); irPara('painel'); }));
+  add('Ações','Alternar tema claro/escuro','aparencia vidro',()=>{ tema = tema==='vidro' ? 'vidro-escuro' : 'vidro'; lsSet(K_THEME, tema); aplicaTema(true); });
+  add('Ações','Recolher ou expandir o menu lateral','barra lateral',()=>$('#sideToggle').click());
+  add('Ações','Exportar backup (.json)','salvar dados copia',()=>exportJson());
+  add('Ações','Bloquear agora','senha trancar sair',()=>bloquear());
+  state.despesas.forEach(d=>add('Despesa', d.descricao||'(sem descrição)', [d.categoria,d.sub,d.tipo].filter(Boolean).join(' '), ()=>{ irPara('despesas'); achaLinha('despesas', d.id); }));
+  state.compras.forEach(c=>add('Compra', c.item||'(sem nome)', [c.prioridade,c.status].filter(Boolean).join(' '), ()=>{ irPara('compras'); achaLinha('compras', c.id); }));
+  return C;
+}
+function fechaPaleta(){ if(cmdEl){ cmdEl.remove(); cmdEl = null; if(cmdVolta && cmdVolta.focus && document.contains(cmdVolta)) cmdVolta.focus(); cmdVolta = null; } }
+function abrePaleta(){
+  if(!state || cmdEl) return;
+  cmdVolta = document.activeElement;
+  const todos = comandos(); let achados = [], sel = 0;
+  const input = h('input','flex-1 bg-transparent outline-none text-[0.95rem]',{type:'text',placeholder:'Buscar tela, despesa ou ação…',spellcheck:'false',autocomplete:'off',role:'combobox','aria-expanded':'true','aria-controls':'cmdList','aria-label':'Buscar comando'});
+  const lista = h('ul','max-h-[50vh] overflow-y-auto scroll-thin p-1.5',{id:'cmdList',role:'listbox'});
+  const filtra = () => {
+    const q = normTxt(input.value).split(/\s+/).filter(Boolean);
+    achados = todos.map(c=>({ c, t:normTxt(c.rotulo+' '+c.kw+' '+c.grupo) }))
+      .filter(x=>q.every(w=>x.t.includes(w)))
+      .sort((a,b)=>{ const pa = q.length && normTxt(a.c.rotulo).startsWith(q[0]) ? 0 : 1, pb = q.length && normTxt(b.c.rotulo).startsWith(q[0]) ? 0 : 1; return pa-pb; })
+      .map(x=>x.c).slice(0, q.length ? 14 : 12);
+    sel = 0; desenha();
+  };
+  const executa = c => { fechaPaleta(); setTimeout(()=>c.run(), 30); };
+  const desenha = () => {
+    lista.replaceChildren(...(achados.length ? achados.map((c,i)=>h('li',`flex items-center justify-between gap-3 px-3 py-2 rounded-xl cursor-pointer text-[0.875rem] ${i===sel?'bg-[rgb(var(--accent-primary)/.16)]':''}`,
+      {id:'cmd-'+i,role:'option','aria-selected':String(i===sel),onmousemove:()=>{ if(sel!==i){ sel = i; desenha(); } },onclick:()=>executa(c)},
+      h('span','truncate', c.rotulo),
+      h('span','flex items-center gap-2 shrink-0 text-[0.7rem] text-dim', c.atalho ? h('kbd','px-1.5 py-px rounded-md bg-fg/10 font-sans',c.atalho) : null, c.grupo)))
+      : [h('li','px-3 py-6 text-center text-sm text-dim','Nada encontrado. Tente outra palavra.')]));
+    input.setAttribute('aria-activedescendant', achados.length ? 'cmd-'+sel : '');
+    const ativo = lista.querySelector('[aria-selected=true]'); if(ativo) ativo.scrollIntoView({block:'nearest'});
+  };
+  input.addEventListener('input', filtra);
+  input.addEventListener('keydown', e=>{
+    if(e.key==='ArrowDown'){ e.preventDefault(); if(achados.length){ sel = (sel+1) % achados.length; desenha(); } }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); if(achados.length){ sel = (sel-1+achados.length) % achados.length; desenha(); } }
+    else if(e.key==='Enter'){ e.preventDefault(); if(achados[sel]) executa(achados[sel]); }
+    else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fechaPaleta(); }
+  });
+  cmdEl = h('div','fixed inset-0 z-[96] bg-black/40 px-4',{onclick:e=>{ if(e.target===cmdEl) fechaPaleta(); }},
+    h('div','glass rounded-2xl w-[min(36rem,100%)] mx-auto mt-[12vh] overflow-hidden',{role:'dialog','aria-modal':'true','aria-label':'Paleta de comandos'},
+      h('div','flex items-center gap-2.5 px-4 h-12 border-b border-hair', ic('search','w-4 h-4 text-dim'), input, h('kbd','text-[0.66rem] px-1.5 py-px rounded-md bg-fg/10 text-dim font-sans','Esc')),
+      lista,
+      h('div','px-4 py-2 border-t border-hair text-[0.68rem] text-dim flex gap-4',h('span','','↑↓ escolher'), h('span','','Enter abrir'), h('span','','Esc fechar'))));
+  document.body.append(cmdEl); icons(); filtra(); input.focus();
+}
+$('#cmdBtn').addEventListener('click', abrePaleta);
+window.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase()==='k'){ e.preventDefault(); if(cmdEl) fechaPaleta(); else abrePaleta(); } });
 const mesInput = $('#mes');
 mesInput.addEventListener('change',e=>{ const m = mi(e.target.value); if(m!=null) setMonth(m); else e.target.value = miStr(month); });
 mesInput.addEventListener('click',()=>{ try{ if(mesInput.showPicker) mesInput.showPicker(); }catch(e){} });
