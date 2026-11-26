@@ -454,6 +454,7 @@ function migrar(s){
   const g = (o,k,v) => { if(o[k]==null || typeof o[k]!==typeof v){ o[k] = v; mudou = true; } return o[k]; };   // garante a forma dos campos novos (também em backups importados)
   if(!Array.isArray(s.compras)){ s.compras = []; mudou = true; }
   const R = g(s,'reserva',{}); g(R,'saldo',0); g(R,'metaMeses',6); g(R,'custoRef',0); g(R,'aporte',0); if(!Array.isArray(R.historico)){ R.historico = []; mudou = true; }
+  const AG = g(s,'agenda',{}); g(AG,'saldoInicial',{}); g(AG,'compras',false); g(s.params,'impostoDia',20);
   const E = g(s,'extrato',{}); if(!Array.isArray(E.linhas)){ E.linhas = []; mudou = true; } if(!Array.isArray(E.arquivos)){ E.arquivos = []; mudou = true; } g(E,'regras',{});
   return mudou;
 }
@@ -781,6 +782,7 @@ let tab = 'painel';
 const TABS = [   // [chave, nome, ícone, grupo da barra lateral, mostra o mês na barra de título?]
   ['painel','Painel','layout-dashboard','Visão geral',true],
   ['projecao','Projeção','trending-up','Visão geral',true],
+  ['agenda','Agenda','calendar-days','Visão geral',true],
   ['receitas','Receitas','arrow-down-left','Lançamentos',true],
   ['despesas','Despesas','arrow-up-right','Lançamentos',true],
   ['ajustes','Ajustes','sliders-horizontal','Lançamentos',false],
@@ -925,6 +927,12 @@ function gerarInsights(m, esc='tudo'){
   const prox = Array.from({length:6},(_,i)=>summary(m+1+i, esc)).filter(x=>x.receita>0);
   const pior = prox.slice().sort((a,b)=>b.p-a.p)[0];
   if(pior && pior.p >= P.limAtencao && !(S.p>=pior.p)) add(pior.saldo<0?'bad':pior.p>=P.limCritico?'warn':'info','calendar-clock',`O mês mais apertado dos próximos 6 é ${fmtMes(pior.m)}: ${pct(pior.p)} comprometido, sobram ${brl(pior.saldo)}.`,80);
+  /* 2b · caixa ao longo do mês (Agenda): antes de receber já vencem contas? */
+  if(esc==='tudo'){
+    const ag = agendaMes(m);
+    if(ag.temBase){ if(ag.primeiroNeg) add('bad','calendar-range',`Seu saldo fica negativo a partir do dia ${ag.primeiroNeg} de ${fmtMes(m)} (menor: ${brl(ag.minSaldo)} no dia ${ag.diaMin}).`,92); }
+    else if(ag.necessario>0) add('warn','calendar-range',`Em ${fmtMes(m)} você paga ${brl(ag.necessario)} a mais do que recebe até o dia ${ag.diaCritico}: mantenha esse valor na conta no início do mês.`,72);
+  }
   /* 3 · parcelas que acabam */
   for(const {d,v} of S.rows){
     if(d.tipo!=='Parcelada' || v===0) continue;
@@ -1114,6 +1122,134 @@ function viewPainel(){
 
   return root;
 }
+
+/* ═════════════ AGENDA DO MÊS + SALDO DIA A DIA ═════════════
+   Usa só dados que o app já tem: o DIA de recebimento das receitas, o DIA de vencimento das despesas, os ajustes do mês, o imposto (pago em um dia
+   configurável) e o checklist "Pago". Itens sem dia definido são diluídos por igual nos dias do mês (estimativa). O saldo parte do "saldo no início do mês"
+   que você informar (opcional); sem ele, a curva mostra só o movimento do mês e o app calcula quanto você precisa ter na conta no dia 1. */
+const diasNoMes = m => new Date(Math.floor(m/12), m%12 + 1, 0).getDate();
+const brlK = v => { const n = Math.abs(v), s = v<0 ? '−' : ''; return n>=1000 ? `${s}R$ ${(n/1000).toFixed(n>=10000?0:1).replace('.',',')}k` : `${s}R$ ${Math.round(n)}`; };
+function eventosDoMes(m){
+  const ult = diasNoMes(m), P = state.params, A = state.agenda;
+  const dia = d => Math.min(ult, Math.max(1, Math.round(num(d)) || 1));
+  const ev = [], sem = [];
+  for(const r of state.receitas){ const v = valorMesRec(r,m); if(v>0) ev.push({ dia:dia(r.dia), tipo:'in', valor:v, nome:r.descricao||'(receita)', estimado:!r.dia, kind:'receita' }); }
+  for(const d of state.despesas){
+    const v = valorMes(d,m); if(!v) continue;
+    const e = { tipo:'out', valor:v, nome:d.descricao||'(despesa)', pago:ehPago(d.id,m), id:d.id, parcela:parcelaLabel(d,m)||'', kind:'despesa', categoria:d.categoria };
+    if(d.dia) ev.push({ ...e, dia:dia(d.dia) }); else sem.push(e);
+  }
+  const imp = taxInfo(m).imposto;
+  if(imp>0) ev.push({ dia:dia(P.impostoDia||20), tipo:'out', valor:imp, nome:'Imposto sobre nota', pago:ehPago(IMPOSTO_ID,m), id:IMPOSTO_ID, kind:'imposto', parcela:'' });
+  if(A.compras) for(const c of state.compras){ const v = compraImpacto(c,m); if(v>0) sem.push({ tipo:'out', valor:v, nome:`Compra planejada: ${c.item||'item'}`, kind:'compra', parcela:'' }); }
+  return { ev, sem, ult };
+}
+function agendaMes(m){
+  const { ev, sem, ult } = eventosDoMes(m);
+  const totSem = sum(sem, x=>x.valor), diluido = totSem / ult;
+  const dias = Array.from({length:ult}, (_,i)=>({ dia:i+1, ent:0, sai:0, ev:[] }));
+  for(const e of ev){ const d = dias[e.dia-1]; d.ev.push(e); if(e.tipo==='in') d.ent += e.valor; else d.sai += e.valor; }
+  let cum = 0, min = Infinity, diaMin = 1, primeiroNeg = null;
+  const base = saldoInicialMes(m), temBase = base!=null, b0 = temBase ? base : 0;
+  dias.forEach(d=>{ d.ent = round2(d.ent); d.sai = round2(d.sai + diluido); cum = round2(cum + d.ent - d.sai); d.mov = cum; d.saldo = round2(b0 + cum); if(cum < min){ min = cum; diaMin = d.dia; } if(d.saldo<0 && primeiroNeg==null) primeiroNeg = d.dia; });
+  const totalEnt = sum(ev.filter(e=>e.tipo==='in'), e=>e.valor), totalSai = round2(sum(ev.filter(e=>e.tipo==='out'), e=>e.valor) + totSem);
+  return { m, ult, dias, sem, totSem, diluido, totalEnt, totalSai, net:round2(totalEnt-totalSai), temBase, base:b0,
+    necessario: min<0 ? round2(-min) : 0, diaCritico: min<0 ? diaMin : null, minSaldo: round2(b0 + min), diaMin, primeiroNeg, saldoFim: round2(b0 + cum) };
+}
+/* saldo no início do mês m: o que você informou; ou, se informou um mês anterior (até 24 meses), esse saldo + o movimento dos meses entre os dois */
+function saldoInicialMes(m){
+  const S = (state.agenda && state.agenda.saldoInicial) || {};
+  if(S[miStr(m)]!=null && S[miStr(m)]!=='') return num(S[miStr(m)]);
+  for(let k=m-1; k>=m-24; k--){
+    if(S[miStr(k)]!=null && S[miStr(k)]!==''){ let s = num(S[miStr(k)]); for(let j=k; j<m; j++){ const { ev, sem } = eventosDoMes(j); s += sum(ev,e=>e.tipo==='in'?e.valor:-e.valor) - sum(sem,e=>e.valor); } return round2(s); }
+  }
+  return null;
+}
+let agendaSel = { m:null, dia:null };
+function graficoSaldo(A, hoje, escolhe){
+  const W = 320, H = 130, pl = 8, pr = 8, pt = 10, pb = 18, n = A.dias.length;
+  const vals = A.dias.map(d=>d.saldo), mx = Math.max(...vals, 0), mn = Math.min(...vals, 0), span = (mx-mn) || 1;
+  const x = i => pl + i*(W-pl-pr)/Math.max(1,n-1), y = v => pt + (mx - v)/span*(H-pt-pb);
+  const pts = A.dias.map((d,i)=>`${x(i).toFixed(1)},${y(d.saldo).toFixed(1)}`).join(' ');
+  const y0 = y(0), sel = A.dias[(agendaSel.dia||1)-1];
+  const svg = sv('svg',{viewBox:`0 0 ${W} ${H}`,class:'w-full h-full',role:'img','aria-label':`Saldo dia a dia de ${fmtMesLongo(A.m)}: menor ponto ${brl(A.minSaldo)} no dia ${A.diaMin}; fim do mês ${brl(A.saldoFim)}`});
+  svg.append(
+    sv('defs',{}, sv('linearGradient',{id:'agArea',x1:'0',y1:'0',x2:'0',y2:'1'}, sv('stop',{offset:'0%',style:'stop-color:rgb(var(--accent-primary));stop-opacity:.35'}), sv('stop',{offset:'100%',style:'stop-color:rgb(var(--accent-primary));stop-opacity:0'}))),
+    sv('line',{x1:pl,x2:W-pr,y1:y0,y2:y0,style:'stroke:rgb(var(--fg) / .28);stroke-dasharray:3 3;stroke-width:1'}),
+    sv('polygon',{points:`${x(0)},${y0} ${pts} ${x(n-1)},${y0}`,style:'fill:url(#agArea)'}),
+    sv('polyline',{points:pts,fill:'none',style:'stroke:rgb(var(--accent-primary));stroke-width:2;stroke-linejoin:round;stroke-linecap:round','vector-effect':'non-scaling-stroke'}));
+  if(hoje) svg.append(sv('line',{x1:x(hoje-1),x2:x(hoje-1),y1:pt-4,y2:H-pb,style:'stroke:rgb(var(--accent-support));stroke-width:1.2;stroke-dasharray:2 2'}));
+  const dm = A.dias[A.diaMin-1]; svg.append(sv('circle',{cx:x(A.diaMin-1),cy:y(dm.saldo),r:3.6,style:`fill:rgb(var(${dm.saldo<0?'--danger':'--warning'}))`}, sv('title',{},`Menor saldo: ${brl(dm.saldo)} no dia ${dm.dia}`)));
+  if(sel) svg.append(sv('circle',{cx:x(sel.dia-1),cy:y(sel.saldo),r:3,style:'fill:rgb(var(--fg));stroke:rgb(var(--accent-primary));stroke-width:1.5'}));
+  A.dias.forEach((d,i)=>{ const rc = sv('rect',{x:x(i)-(W/n)/2,y:0,width:W/n,height:H,fill:'transparent',style:'cursor:pointer','data-dia':d.dia}, sv('title',{},`Dia ${d.dia}: saldo ${brl(d.saldo)}`)); rc.addEventListener('click',()=>escolhe(d.dia)); svg.append(rc); });
+  [1, Math.ceil(n/2), n].forEach(dd=>svg.append(sv('text',{x:x(dd-1),y:H-4,'text-anchor':dd===1?'start':dd===n?'end':'middle',style:'font-size:9px;fill:rgb(var(--dim))'}, String(dd))));
+  return svg;
+}
+function viewAgenda(){
+  const A0 = state.agenda, m = month, A = agendaMes(m), ult = A.ult;
+  const hoje = m===nowMonth() ? new Date().getDate() : null;
+  if(agendaSel.m!==m){ agendaSel = { m, dia: hoje || 1 }; }
+  const sel = Math.min(ult, agendaSel.dia || 1), dSel = A.dias[sel-1];
+  const escolhe = d => { agendaSel = { m, dia:d }; render(); };
+  const kpi = (chip, icone, rotulo, valor, sub, tomTexto) => h('div','flex items-center gap-3 px-5 py-3.5 min-w-0',
+    h('span',`chip ${chip}`, ic(icone)), h('div','min-w-0', h('div','text-[0.74rem] text-dim font-medium truncate', rotulo), h('div',`num text-[1.2rem] font-semibold leading-tight truncate ${tomTexto||''}`, valor), sub?h('div','text-[0.68rem] text-dim truncate',sub):null));
+  const nEnt = A.dias.reduce((t,d)=>t+d.ev.filter(e=>e.tipo==='in').length,0), nSai = A.dias.reduce((t,d)=>t+d.ev.filter(e=>e.tipo==='out').length,0);
+  const kpis = h('section','glass rounded-2xl lg:col-span-12 overflow-hidden grid grid-cols-2 lg:grid-cols-4 divide-x divide-hair',
+    kpi('chip-green','arrow-down-left','Entradas do mês', brl(A.totalEnt), `${nEnt} recebimento${nEnt===1?'':'s'}`),
+    kpi('chip-orange','arrow-up-right','Saídas do mês', brl(A.totalSai), `${nSai} conta${nSai===1?'':'s'}${A.sem.length?` · ${A.sem.length} sem dia`:''}`),
+    A.temBase
+      ? kpi(A.minSaldo<0?'chip-red':'chip-blue','trending-down','Menor saldo do mês', brl(A.minSaldo), `no dia ${A.diaMin}`, A.minSaldo<0?'text-coral':'')
+      : kpi(A.necessario>0?'chip-orange':'chip-green','wallet','Ter na conta no dia 1', A.necessario>0?brl(A.necessario):'R$ 0,00', A.necessario>0?`para não ficar negativo até o dia ${A.diaCritico}`:'o mês não fica negativo'),
+    kpi('chip-purple','flag', A.temBase?'Saldo no fim do mês':'Resultado do mês', brl(A.temBase?A.saldoFim:A.net), A.temBase?'com o saldo inicial informado':'entradas − saídas', (A.temBase?A.saldoFim:A.net)<0?'text-coral':''));
+  /* calendário */
+  const primeiro = new Date(Math.floor(m/12), m%12, 1).getDay(), semanas = Math.ceil((primeiro + ult)/7);
+  const celulas = [];
+  for(let i=0;i<primeiro;i++) celulas.push(h('div','rounded-xl opacity-0'));
+  for(const d of A.dias){
+    const out = d.ev.filter(e=>e.tipo==='out'), atrasado = hoje && d.dia<hoje && out.some(e=>e.id && !e.pago), todoPago = out.length && out.every(e=>e.pago!==false && (e.pago||!e.id)) && out.some(e=>e.id);
+    const ehHoje = hoje===d.dia, ehSel = sel===d.dia;
+    celulas.push(h('button',`text-left rounded-xl px-1.5 py-1 flex flex-col min-h-0 min-w-0 overflow-hidden transition-colors ring-1 ${ehSel?'bg-[rgb(var(--accent-primary)/.18)] ring-[rgb(var(--accent-primary)/.7)]':'bg-fg/[0.045] ring-transparent hover:bg-fg/[0.09]'}`,
+      {type:'button','data-dia':String(d.dia),'aria-pressed':String(ehSel),'aria-label':`Dia ${d.dia}: entradas ${brl(d.ent)}, saídas ${brl(d.sai)}, saldo ${brl(d.saldo)}`,onclick:()=>escolhe(d.dia)},
+      h('div','flex items-center justify-between gap-1 shrink-0',
+        h('span',`text-[0.72rem] font-semibold leading-none ${ehHoje?'inline-grid place-items-center w-[1.15rem] h-[1.15rem] rounded-full bg-[rgb(var(--accent-primary))] text-[rgb(var(--on-accent))]':''}`, String(d.dia)),
+        h('span','flex items-center gap-0.5 text-[0.6rem]', atrasado?h('span','text-coral',ic('alarm-clock','w-3 h-3')):todoPago?h('span','text-mint',ic('check','w-3 h-3')):null, d.saldo<0?h('i','w-1.5 h-1.5 rounded-full bg-coral',{title:'Saldo negativo neste dia'}):null)),
+      h('div','mt-auto flex flex-col gap-px num text-[0.6rem] leading-tight',
+        d.ent>0 ? h('span','text-mint truncate', '+ ', h('span','pv', brlK(d.ent))) : null,
+        out.length ? h('span','text-fg/80 truncate', '− ', h('span','pv', brlK(out.reduce((t,e)=>t+e.valor,0)))) : null)));
+  }
+  const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const cal = h('section','glass rounded-2xl p-4 lg:col-span-8 flex flex-col min-h-0 overflow-hidden',
+    h('div','flex items-center justify-between gap-2 mb-2 shrink-0', h('span','text-[0.95rem] font-semibold', fmtMesLongo(m).replace(/^./,c=>c.toUpperCase())),
+      h('span','text-[0.68rem] text-dim hidden min-[1500px]:flex items-center gap-3', h('span','flex items-center gap-1',h('i','w-1.5 h-1.5 rounded-full bg-mint'),'entradas'), h('span','flex items-center gap-1',h('i','w-1.5 h-1.5 rounded-full bg-fg/60'),'saídas'), h('span','flex items-center gap-1',h('i','w-1.5 h-1.5 rounded-full bg-coral'),'saldo negativo'))),
+    h('div','grid grid-cols-7 gap-1.5 mb-1.5 shrink-0', dias.map(d=>h('div','text-center text-[0.66rem] text-dim font-medium',d))),
+    h('div','grid grid-cols-7 gap-1.5 flex-1 min-h-0',{style:`grid-template-rows:repeat(${semanas},minmax(0,1fr))`}, celulas));
+  /* coluna da direita: gráfico + detalhes */
+  const inSaldo = h('input','fld num !h-8 !w-28 text-right',{type:'number',step:'0.01',inputmode:'decimal',placeholder:'opcional','aria-label':'Saldo na conta no início do mês',value:(A0.saldoInicial[miStr(m)]??'')});
+  inSaldo.addEventListener('change',()=>{ if(inSaldo.value==='') delete A0.saldoInicial[miStr(m)]; else A0.saldoInicial[miStr(m)] = round2(Number(inSaldo.value)); save(); render(); });
+  const cbCompras = h('input',{type:'checkbox',class:'w-4 h-4 accent-[rgb(var(--accent-primary))]'}); cbCompras.checked = !!A0.compras;
+  cbCompras.addEventListener('change',()=>{ A0.compras = cbCompras.checked; save(); render(); });
+  const grafico = h('section','glass rounded-2xl p-4 flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden',
+    h('div','flex items-center justify-between gap-2 mb-1 shrink-0', h('span','text-[0.95rem] font-semibold','Saldo dia a dia'), h('label','flex items-center gap-1.5 text-[0.7rem] text-dim', 'Saldo inicial', inSaldo)),
+    h('div','flex-1 min-h-[5rem]', graficoSaldo(A, hoje, escolhe)),
+    h('div','shrink-0 mt-1 flex items-center justify-between gap-2 text-[0.68rem] text-dim',
+      h('span','', A.temBase ? (A.primeiroNeg ? `Fica negativo a partir do dia ${A.primeiroNeg}.` : 'Nunca fica negativo neste mês.') : 'Sem saldo inicial: a curva mostra só o movimento do mês.'),
+      h('label','flex items-center gap-1.5 cursor-pointer', cbCompras, 'incluir compras planejadas')));
+  const evLinhas = dSel.ev.slice().sort((a,b)=>(a.tipo==='in'?0:1)-(b.tipo==='in'?0:1) || b.valor-a.valor);
+  const linhaEv = e => h('div','flex items-center gap-2.5 py-1.5',
+    h('span',`chip !w-7 !h-7 !rounded-lg ${e.tipo==='in'?'chip-green':'chip-orange'}`, ic(e.tipo==='in'?'arrow-down-left':'arrow-up-right')),
+    h('div','flex-1 min-w-0', h('div','text-[0.8rem] font-medium truncate', e.nome, e.parcela?h('span','text-[0.68rem] text-dim ml-1.5',e.parcela):null, e.estimado?h('span','text-[0.66rem] text-dim ml-1.5','(dia estimado)'):null), h('div','text-[0.68rem] text-dim', e.tipo==='in'?'Recebimento':(e.kind==='imposto'?'Imposto':(e.categoria||'Despesa')))),
+    h('span',`num text-[0.8rem] font-semibold shrink-0 ${e.tipo==='in'?'text-mint':''}`, h('span','pv',`${e.tipo==='in'?'+ ':'− '}${brl(e.valor)}`)),
+    e.id ? h('input',{type:'checkbox',class:'w-4 h-4 cursor-pointer accent-[rgb(var(--accent-primary))] shrink-0',title:e.pago?'Pago ✓':'Marcar como pago','aria-label':`Marcar ${e.nome} como pago`,checked:e.pago?true:null,onchange:ev=>marcaPago(e.id, m, ev.target.checked)}) : h('span','w-4 shrink-0'));
+  const detalhe = h('section','glass rounded-2xl p-4 flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden',
+    h('div','flex items-baseline justify-between gap-2 mb-1 shrink-0', h('span','text-[0.95rem] font-semibold', `Dia ${sel}${hoje===sel?' · hoje':''}`),
+      h('span','text-[0.7rem] text-dim', 'saldo ', h('span','num text-fg font-medium', h('span','pv', brl(dSel.saldo))))),
+    h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 divide-y divide-hair fade-b',
+      evLinhas.length ? evLinhas.map(linhaEv) : [h('div','py-6 text-center text-sm text-dim','Nenhum recebimento ou vencimento neste dia.')],
+      A.sem.length ? [h('div','pt-3 pb-1 text-[0.7rem] text-dim font-medium', `Sem dia definido (${brl(A.totSem)} no mês, diluído em ${brl(A.diluido)} por dia):`), ...A.sem.map(e=>h('div','flex items-center justify-between gap-2 py-1 text-[0.76rem] text-mut', h('span','truncate',e.nome), h('span','num shrink-0',h('span','pv',brl(e.valor)))))] : null));
+  return h('div','grid grid-cols-1 lg:grid-cols-12 gap-4 fit-2rows fade-in [&>*]:min-w-0', kpis, cal, h('div','lg:col-span-4 flex flex-col gap-4 min-h-0',
+    h('div','flex-[1.1] min-h-0 flex',grafico), h('div','flex-1 min-h-0 flex',detalhe)));
+}
+
 
 /* ═════════════ PROJEÇÃO (12 meses) — matriz de fluxo futuro ═════════════ */
 /* Simulador de nova compra — só simulação: NADA é gravado em state/localStorage.
@@ -2031,6 +2167,7 @@ function viewConfig(){
           h('div','grid sm:grid-cols-2 gap-4',
             numField('Alíquota do imposto sobre a nota (%)','aliquota',{factor:100}),
             numField('Imposto pago X meses após o recebimento','lag',{step:'1'}),
+            numField('Dia do mês em que o imposto é pago (Agenda)','impostoDia',{step:'1'}),
             numField('Limite de atenção (% comprometido)','limAtencao',{factor:100,step:'1'}),
             numField('Limite crítico (% comprometido)','limCritico',{factor:100,step:'1'}))),
         sec('landmark','Onde o imposto calculado aparece',
@@ -2472,7 +2609,7 @@ function render(){
     h('button','esc',{type:'button',role:'radio','aria-checked':String(k===escopo),title:k==='tudo'?'Tudo: todas as receitas e despesas':k==='pessoal'?'Pessoal: sem a categoria Empresa / Profissional e sem o imposto':'Empresa: só Empresa / Profissional, com a receita medida pelo valor das notas',
       onclick:()=>{ if(escopo!==k){ escopo = k; lsSet('cf-escopo',k); render(); } }}, l)));
   bkAtualizaUI();
-  $('#view').replaceChildren(tab==='painel'?viewPainel(): tab==='projecao'?viewProjecao(): tab==='receitas'?viewReceitas(): tab==='config'?viewConfig()
+  $('#view').replaceChildren(tab==='painel'?viewPainel(): tab==='projecao'?viewProjecao(): tab==='agenda'?viewAgenda(): tab==='receitas'?viewReceitas(): tab==='config'?viewConfig()
     : tab==='compras'?viewCompras(): tab==='reserva'?viewReserva(): tab==='extrato'?viewExtrato(): viewTable(tab));
   if(!animarEntrada){ const raiz = $('#view').firstElementChild; if(raiz) raiz.classList.remove('fade-in'); }
   animarEntrada = false;
