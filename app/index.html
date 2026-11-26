@@ -240,7 +240,7 @@ body{ font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display
 .fit-2rows{ height:100%; grid-template-rows:auto minmax(0,1fr); }
 .fit-3rows{ height:100%; grid-template-rows:auto auto minmax(0,1fr); }
 .fit-1row{ height:100%; grid-template-rows:minmax(0,1fr); }
-.fit-painel{ height:100%; grid-template-rows:minmax(0,1.18fr) auto minmax(0,1.3fr); }
+.fit-painel{ height:100%; grid-template-rows:auto minmax(0,.95fr) auto minmax(0,1.1fr) auto minmax(0,1fr); }
 @media (max-width:1023px), (max-height:639px){ .fit-2rows,.fit-3rows,.fit-1row,.fit-painel{ height:auto; grid-template-rows:none; } .app{ height:auto; min-height:100vh; overflow:visible; } }
 /* títulos das páginas vão para a barra de cima; os de dentro some */
 main .text-lg.font-semibold{ display:none; }
@@ -976,10 +976,10 @@ function gerarInsights(m, esc='tudo'){
   return out.sort((a,b)=>b.peso-a.peso);
 }
 let painelModo = 'cat';   // cartão da esquerda embaixo: 'cat' (categorias) | 'top' (maiores gastos)
-function insightsCard(){
-  const lista = gerarInsights(month, escopo).slice(0,6);
+function insightsCard(n=6, compacto=false){
+  const lista = gerarInsights(month, escopo).slice(0,n);
   const COR = { bad:'chip-red', warn:'chip-orange', info:'chip-gray', ok:'chip-green' };
-  return h('section','glass rounded-2xl p-5 flex flex-col min-h-0 overflow-hidden flex-1',
+  return h('section',`glass rounded-2xl ${compacto?'p-4':'p-5'} flex flex-col min-h-0 overflow-hidden flex-1`,
     h('div','flex items-center gap-2.5 mb-3 shrink-0', h('span','chip chip-purple', ic('lightbulb')), h('div','',h('div','text-[0.95rem] font-semibold leading-tight','Insights'), h('div','text-[0.72rem] text-dim','calculados automaticamente'))),
     h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-2.5 fade-b', lista.map(i=>
       h('div','flex items-start gap-3',{title:i.texto},
@@ -1002,12 +1002,124 @@ function viewComecar(){
         passo(3,'Acompanhe','Painel, projeção, insights, compras e reserva se atualizam sozinhos.','Ver a projeção',()=>irPara('projecao'))),
       h('p','text-[0.78rem] text-dim mt-5','Já usa o app em outro computador? Em Configurações › Importar backup você traz tudo de uma vez. ', h('button','underline underline-offset-2 hover:text-fg',{type:'button',onclick:()=>irPara('config')},'Abrir Configurações'),'. Dica: Ctrl+K busca qualquer tela ou ação.')));
 }
+/* ═════════════ PAINEL EM 3 FAIXAS: Hoje · Este mês · Próximos meses ═════════════
+   Só usa dados que o app já tem (receitas, despesas, "Pago", extrato, compras). Cada faixa responde uma pergunta:
+   1) o que vence/chega agora? 2) como está o mês? 3) o que vem pela frente? */
+const DSEM = ['dom','seg','ter','qua','qui','sex','sáb'];
+const dowDe = (m, dia) => new Date(Math.floor(m/12), m%12, dia).getDay();
+/* próximos 7 dias (a partir de hoje; se o mês visto não é o atual, a partir do dia 1) + contas vencidas e não pagas */
+function faixaHoje(m){
+  const cur = m===nowMonth(), d0 = cur ? new Date().getDate() : 1;
+  const E = eventosDoMes(m), ult = E.ult, lim = d0 + 6;
+  let E2 = null; const mesSeg = () => (E2 = E2 || eventosDoMes(m+1));
+  const itens = [];
+  for(const e of E.ev){
+    if(e.dia>=d0 && e.dia<=lim) itens.push({ ...e, mm:m, off:e.dia-d0 });
+    else if(cur && e.dia<d0 && e.tipo==='out' && e.id && !e.pago) itens.push({ ...e, mm:m, off:e.dia-d0, atrasada:true });
+  }
+  if(lim>ult) for(const e of mesSeg().ev) if(e.dia<=lim-ult) itens.push({ ...e, mm:m+1, off:ult-d0+e.dia });
+  itens.sort((a,b)=>(a.atrasada?1:0)-(b.atrasada?1:0) || a.off-b.off || (a.tipo==='in'?0:1)-(b.tipo==='in'?0:1) || b.valor-a.valor);   // próximos dias primeiro; vencidas depois
+  /* próximo recebimento (depois de hoje) e quanto ainda será pago até lá */
+  const primeiroIn = (EE, dmin) => EE.ev.filter(e=>e.tipo==='in' && e.dia>=dmin).sort((a,b)=>a.dia-b.dia)[0];
+  let prox = null, r = primeiroIn(E, cur ? d0+1 : d0);
+  if(r) prox = { ...r, mm:m, off:r.dia-d0 };
+  else if((r = primeiroIn(mesSeg(), 1))) prox = { ...r, mm:m+1, off:ult-d0+r.dia };
+  const todas = E.ev.map(e=>({ ...e, off:e.dia-d0 }));
+  if(prox && prox.mm!==m) todas.push(...mesSeg().ev.map(e=>({ ...e, off:ult-d0+e.dia })));
+  const ate = prox ? prox.off : ult-d0+1;
+  const devido = todas.filter(e=>e.tipo==='out' && e.id && !e.pago && e.off<ate);
+  const A = agendaMes(m);
+  const saldoAntes = (A.temBase && prox && prox.mm===m && prox.dia>=2) ? A.dias[prox.dia-2].saldo : null;
+  return { m, cur, d0, itens, prox, aPagar:round2(sum(devido,e=>e.valor)), nPagar:devido.length, atrasadas:devido.filter(e=>e.off<0).length, saldoAntes };
+}
+const rotuloDiaFaixa = (e, m, cur) => {
+  if(e.atrasada) return `dia ${e.dia}`;
+  if(cur && e.off===0) return 'hoje';
+  if(cur && e.off===1) return 'amanhã';
+  return `${DSEM[dowDe(e.mm,e.dia)]}, ${e.dia}` + (e.mm!==m ? `/${String(e.mm%12+1).padStart(2,'0')}` : '');
+};
+/* estado em TEXTO + ícone (não depende só de cor) */
+const estadoFaixa = (e, cur) => {
+  if(e.tipo==='in') return e.estimado ? { t:'dia estimado', i:'info', c:'chip-gray' } : null;
+  if(e.pago) return { t:'pago', i:'check', c:'chip-green' };
+  if(e.atrasada) return { t:'atrasada', i:'alarm-clock', c:'chip-red' };
+  if(cur && e.off===0 && e.id) return { t:'vence hoje', i:'alarm-clock', c:'chip-orange' };
+  return null;
+};
+/* mês com maior comprometimento entre os próximos 12 */
+function mesApertado(esc){
+  return Array.from({length:12},(_,i)=>summary(month+1+i, esc)).filter(x=>x.receita>0 && x.p!=null).sort((a,b)=>b.p-a.p)[0] || null;
+}
+/* primeira compra planejada que pede atenção; se não cabe no mês escolhido, procura o primeiro mês (até 12 à frente) em que cabe */
+function compraDaFaixa(){
+  const pend = state.compras.filter(c=>c.status!=='Comprado' && num(c.valor)>0 && mi(c.mes)!=null)
+    .sort((a,b)=>mi(a.mes)-mi(b.mes) || (PRIO[a.prioridade]??1)-(PRIO[b.prioridade]??1));
+  if(!pend.length) return null;
+  const itens = pend.map(c=>({ c, r:compraCabe(c) }));
+  const x = itens.find(i=>i.r && !i.r.ok) || itens[0];
+  const c = x.c, s0 = mi(c.mes), v = compraPorMes(c), n = Math.min(compraN(c), 36);
+  let viavel = null;
+  if(x.r && !x.r.ok) for(let s=s0+1; s<=s0+12 && viavel==null; s++){ let ok = true; for(let k=s; k<s+n; k++){ if(summary(k).saldo - v < 0){ ok = false; break; } } if(ok) viavel = s; }
+  return { c, mes:s0, sobra:x.r.sobra, ok:x.r.ok, viavel, total:pend.length };
+}
+/* gasto real do extrato × planejado, por categoria (só categorias com gasto no extrato do mês) */
+function desviosReais(m, S){
+  const ls = linhasDoMes(m); if(!ls.length) return null;
+  const real = new Map(); for(const l of ls){ const g = gastoDe(l); if(g) real.set(l.cat, round2((real.get(l.cat)||0)+g)); }
+  return [...real.entries()].map(([c,r])=>({ c, r, p:(S.porCat.get(c)||{v:0}).v })).map(x=>({ ...x, d:round2(x.r-x.p) })).sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+}
+/* linha compacta: nome + valor + % e uma barra fina embaixo */
+function miniRow(label, value, receita, opt={}){
+  const w = receita>0 ? Math.max(0, Math.min(100, value/receita*100)) : 0;
+  return h('div',`px-1 py-[3px] min-w-0 ${opt.dim?'opacity-60':''}`,{title:opt.title||`${typeof label==='string'?label:''}: ${brl(value)}`},
+    h('div','flex items-center justify-between gap-2 min-w-0',
+      typeof label==='string' ? h('span',`truncate text-[0.78rem] ${opt.sub?'text-mut pl-3':'text-fg/90'}`,label) : label,
+      h('span','num text-[0.78rem] shrink-0 flex items-baseline', h('span',`pv ${opt.sub?'text-mut':'font-medium'}`,brl(value)), h('span','text-[0.66rem] text-dim ml-1.5 w-[2.9rem] text-right', receita>0?pct(value/receita):'—'))),
+    h('div','track !h-1 mt-[3px]', h('div','fill',{style:`width:${w}%;background:linear-gradient(90deg, rgb(var(--indigo) / .55), rgb(var(--cyan)))`})));
+}
 function viewPainel(){
   if(!state.receitas.length && !state.despesas.length) return viewComecar();
-  const S = summary(month, escopo), Sn = summary(month+1, escopo), P = state.params, T = TONE[S.st], T2 = S.tax, pg = resumoPagamentos(S);
-  const root = h('div','grid grid-cols-1 lg:grid-cols-12 gap-4 fit-painel fade-in [&>*]:min-w-0');
+  const S = summary(month, escopo), Sn = summary(month+1, escopo), P = state.params, T = TONE[S.st], pg = resumoPagamentos(S);
+  const root = h('div','grid grid-cols-1 lg:grid-cols-12 gap-x-4 gap-y-3 fit-painel fade-in [&>*]:min-w-0');
+  const faixa = (icone, titulo, sub) => h('div','lg:col-span-12 flex items-center gap-2 text-[0.74rem] font-semibold text-mut -mb-1.5',
+    ic(icone,'w-3.5 h-3.5 text-dim'), h('span','',titulo), sub?h('span','font-normal text-dim',sub):null, h('span','flex-1 border-t border-hair ml-1'));
+  const card = (cls, ...kids) => h('section',`glass rounded-2xl p-4 flex flex-col min-h-0 overflow-hidden ${cls}`, ...kids);
+  const titulo = (txt, right) => h('div','flex items-baseline justify-between gap-2 mb-1.5 shrink-0', h('span','text-[0.95rem] font-semibold',txt), right||null);
+  const linkBtn = (txt, fn) => h('button','text-[0.7rem] text-dim hover:text-fg underline underline-offset-2',{type:'button',onclick:fn}, txt);
 
-  /* Linha 1 · herói (saldo + medidor + composição) e insights */
+  /* ── Faixa 1 · Hoje e próximos 7 dias ── */
+  const F = faixaHoje(month);
+  root.append(faixa('alarm-clock', F.cur ? 'Hoje e próximos 7 dias' : `Primeiros dias de ${fmtMes(month)}`, escopo!=='tudo' ? ' · mostra todas as contas, sem o filtro '+rotuloEscopo() : ''));
+  const linha = e => { const st = estadoFaixa(e, F.cur);
+    return h('div','flex items-center gap-2.5 py-1.5',
+      h('div',`w-[3.6rem] shrink-0 text-[0.72rem] leading-tight ${e.atrasada?'text-coral font-semibold':(F.cur&&e.off===0)?'font-semibold':'text-dim'}`, rotuloDiaFaixa(e, month, F.cur)),
+      h('span',`chip !w-6 !h-6 !rounded-lg ${e.tipo==='in'?'chip-green':'chip-orange'}`, ic(e.tipo==='in'?'arrow-down-left':'arrow-up-right','w-3.5 h-3.5')),
+      h('div','flex-1 min-w-0 text-[0.8rem] font-medium truncate', e.nome, e.parcela?h('span','text-[0.68rem] text-dim ml-1.5',e.parcela):null),
+      st ? h('span',`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.66rem] font-semibold shrink-0 ${st.c}`, ic(st.i,'w-3 h-3'), st.t) : null,
+      h('span',`num text-[0.8rem] font-semibold shrink-0 ${e.tipo==='in'?'text-mint':''}`, h('span','pv',`${e.tipo==='in'?'+ ':'− '}${brl(e.valor)}`)),
+      e.id ? h('input',{type:'checkbox',class:'w-4 h-4 cursor-pointer accent-[rgb(var(--accent-primary))] shrink-0',title:e.pago?'Pago ✓':'Marcar como pago','aria-label':`Marcar ${e.nome} como pago`,checked:e.pago?true:null,onchange:ev=>marcaPago(e.id, e.mm, ev.target.checked)}) : h('span','w-4 shrink-0')); };
+  const proximos = F.itens.filter(e=>!e.atrasada), vencidas = F.itens.filter(e=>e.atrasada);
+  root.append(card('lg:col-span-5',
+    titulo('Vencimentos e recebimentos', linkBtn('Abrir agenda', ()=>irPara('agenda'))),
+    h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 fade-b',
+      proximos.length ? h('div','divide-y divide-hair', proximos.map(linha)) : h('div',`text-[0.8rem] text-dim text-center ${vencidas.length?'py-2':'py-6'}`, F.cur ? 'Nada vence nem chega nos próximos 7 dias.' : 'Nada vence nem chega nos primeiros 7 dias.'),
+      vencidas.length ? [
+        h('div','pt-2.5 pb-0.5 flex items-center gap-1.5 text-[0.7rem] font-semibold text-coral', ic('alarm-clock','w-3.5 h-3.5'), `Vencidas sem marcar como paga${vencidas.length===1?'':'s'} (${vencidas.length})`),
+        h('div','divide-y divide-hair', vencidas.map(linha))] : null)));
+  /* caixa até o próximo recebimento */
+  const quando = F.prox ? `${F.prox.nome} · ${DSEM[dowDe(F.prox.mm,F.prox.dia)]}, dia ${F.prox.dia}${F.prox.mm!==month?' de '+fmtMesCurto(F.prox.mm):''}` : null;
+  root.append(card('lg:col-span-3',
+    titulo(F.prox ? 'Até o próximo recebimento' : 'A pagar neste mês'),
+    h('div','num text-[1.65rem] font-bold leading-tight', h('span','pv', brl(F.aPagar))),
+    h('div','text-[0.74rem] text-mut mt-0.5', F.nPagar ? `em ${F.nPagar} conta${F.nPagar===1?'':'s'} ainda em aberto` : 'nenhuma conta em aberto'),
+    h('div','mt-auto pt-2 flex flex-col gap-1 text-[0.72rem] text-dim',
+      F.atrasadas ? h('span','flex items-center gap-1.5 text-coral font-medium', ic('alarm-clock','w-3.5 h-3.5'), `${F.atrasadas} vencida${F.atrasadas===1?'':'s'} sem marcar como paga${F.atrasadas===1?'':'s'}`) : null,
+      quando ? h('span','flex items-center gap-1.5 truncate', ic('arrow-down-left','w-3.5 h-3.5 text-mint'), `Recebe: ${quando}`) : h('span','flex items-center gap-1.5', ic('info','w-3.5 h-3.5'), 'Sem recebimento previsto adiante.'),
+      F.saldoAntes!=null ? h('span','flex items-center gap-1.5', ic('wallet','w-3.5 h-3.5'), 'Saldo previsto na véspera: ', h('span','num text-fg font-medium', h('span','pv', brl(F.saldoAntes)))) : null)));
+  root.append(h('div','lg:col-span-4 flex min-h-0', insightsCard(3, true)));
+
+  /* ── Faixa 2 · Este mês ── */
+  root.append(faixa('wallet', `Este mês · ${fmtMes(month)}`, escopo!=='tudo' ? ' · '+rotuloEscopo() : ''));
   const totalRef = Math.max(S.receita, S.comprometido);
   const segs = [
     ['Fixas', S.porTipo.Fixa||0, '--indigo', 1],
@@ -1016,63 +1128,64 @@ function viewPainel(){
     ['Imposto', S.tax.imposto, '--amber', 1],
     ['Livre', Math.max(0,S.saldo), '--mint', 1]
   ].filter(s=>s[1]>0);
-  root.append(h('section','glass rounded-2xl p-6 lg:col-span-7 overflow-hidden flex flex-col',
-    h('div','flex items-stretch justify-between gap-5 flex-1 min-h-0',
-      h('div','flex flex-col min-w-0',
-        h('div','flex items-center gap-2.5 flex-wrap',
-          h('div','eyebrow','Saldo livre'+(escopo!=='tudo'?' · '+rotuloEscopo():'')), pill(S.st, STATUS_TXT[S.st].badge)),
-        h('div','mt-3', heroMoney(S.saldo, `text-[3.7rem] font-bold ${S.saldo>=0?'text-mint':'text-coral'}`)),
-        h('p','mt-3 text-[0.9rem] text-mut max-w-[36ch] leading-snug',
-          S.receita>0 ? `Sobra depois de ${brl(S.comprometido)} comprometidos da receita de ${brl(S.receita)}.` : 'Nenhuma receita cadastrada para este mês.')),
-      h('div','w-[12.5rem] shrink-0 hidden sm:flex flex-col items-center min-h-0',
-        h('div','flex-1 min-h-[7rem] w-full', gauge(S)),
-        h('div',`text-[0.8rem] font-semibold text-center ${T.text}`, STATUS_TXT[S.st].frase),
-        h('div','text-[0.66rem] text-dim text-center mt-0.5',`atenção ≥ ${pct(P.limAtencao)} · crítico ≥ ${pct(P.limCritico)}`))),
-    h('div','pt-4 shrink-0',
-      h('div','flex gap-[3px] h-3',{role:'img','aria-label':'Composição da receita do mês: '+(segs.map(([l,v])=>`${l} ${brl(v)}`).join('; ')||'sem dados')},
+  root.append(h('section','glass rounded-2xl p-5 lg:col-span-5 overflow-hidden flex flex-col',
+    h('div','flex items-stretch justify-between gap-4 flex-1 min-h-0',
+      h('div','flex flex-col min-w-0 justify-center',
+        h('div','flex items-center gap-2 flex-wrap', h('div','eyebrow','Saldo livre'+(escopo!=='tudo'?' · '+rotuloEscopo():'')), pill(S.st, STATUS_TXT[S.st].badge)),
+        h('div','mt-1.5', heroMoney(S.saldo, `text-[2.9rem] font-bold ${S.saldo>=0?'text-mint':'text-coral'}`)),
+        h('p','mt-1.5 text-[0.8rem] text-mut leading-snug', S.receita>0 ? `Sobra após ${brl(S.comprometido)} comprometidos da receita de ${brl(S.receita)}.` : 'Nenhuma receita cadastrada para este mês.')),
+      h('div','w-[9.5rem] shrink-0 hidden sm:flex flex-col items-center min-h-0',
+        h('div','flex-1 min-h-[5.5rem] w-full', gauge(S)),
+        h('div',`text-[0.72rem] font-semibold text-center leading-tight ${T.text}`, STATUS_TXT[S.st].frase))),
+    h('div','pt-2.5 shrink-0',
+      h('div','flex gap-[3px] h-2.5',{role:'img','aria-label':'Composição da receita do mês: '+(segs.map(([l,v])=>`${l} ${brl(v)}`).join('; ')||'sem dados')},
         segs.length ? segs.map(([l,v,c,o])=>h('div','h-full rounded-[5px] first:rounded-l-full last:rounded-r-full',{title:`${l}: ${brl(v)}`,style:`flex:${v/totalRef} 1 0;background:rgb(var(${c}) / ${o})`})) : h('div','h-full w-full rounded-full bg-fg/[0.07]')),
-      h('div','mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[0.74rem]',
-        segs.map(([l,v,c,o])=>h('div','flex items-center gap-1.5 text-mut',
-          h('span','w-2 h-2 rounded-full',{style:`background:rgb(var(${c}) / ${o})`}), l,
-          h('span','num text-fg font-medium', brl(v))))))));
-  root.append(h('div','lg:col-span-5 flex min-h-0', insightsCard()));
-
-  /* Linha 2 · faixa de números */
-  const kpi = (chip, icone, rotulo, valor, sub, extra='') => h('div',`flex items-center gap-3 px-5 py-3.5 min-w-0 ${extra}`,
-    h('span',`chip ${chip}`, ic(icone)),
-    h('div','min-w-0', h('div','text-[0.74rem] text-dim font-medium truncate', rotulo), h('div','num text-[1.2rem] font-semibold leading-tight truncate', valor), sub?h('div','text-[0.68rem] text-dim truncate',sub):null));
-  root.append(h('section','glass rounded-2xl lg:col-span-12 overflow-hidden grid grid-cols-2 lg:grid-cols-5 divide-x divide-hair',
-    kpi('chip-green','arrow-down-left', escopo==='empresa'?'Receita (notas)':'Receita do mês', brl(S.receita), null),
-    kpi('chip-blue','arrow-up-right','Total comprometido', brl(S.comprometido), `${brl(S.desp)} + imposto ${brl(T2.imposto)}`),
-    kpi('chip-purple','calendar-clock','Próximo mês', brl(Sn.comprometido), `já reservado para ${fmtMes(month+1)}`),
-    kpi('chip-green','circle-check','Já pago', brl(pg.pago), pg.n ? `${pg.nPagas} de ${pg.n} contas · ${Math.round(pg.pct*100)}%` : 'nenhuma conta no mês','kpi-pago'),
-    kpi('chip-orange','hourglass','Falta pagar', brl(pg.falta), pg.n ? `${pg.n-pg.nPagas} conta${pg.n-pg.nPagas===1?'':'s'} em aberto` : '—','kpi-falta')));
-
-  /* Linha 3 · categorias (ou maiores gastos), parcelamentos e projeção */
-  const cats = [...S.porCat.entries()].map(([nome,e])=>({ nome, e })).sort((a,b)=>b.e.v-a.e.v);
+      h('div','mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.7rem] text-mut',
+        segs.map(([l,v,c,o])=>h('div','flex items-center gap-1.5',{title:`${l}: ${brl(v)}`}, h('span','w-2 h-2 rounded-full',{style:`background:rgb(var(${c}) / ${o})`}), l))))));
+  const cel = (rotulo, valor, sub, cls='') => h('div',`min-w-0 ${cls}`,
+    h('div','text-[0.68rem] text-dim font-medium truncate', rotulo),
+    h('div','num text-[1rem] font-semibold leading-tight truncate', h('span','pv', valor)),
+    h('div','text-[0.64rem] text-dim truncate', sub||' '));
+  root.append(card('lg:col-span-3 justify-center',
+    h('div','grid grid-cols-2 gap-x-3 gap-y-2.5',
+      cel(escopo==='empresa'?'Receita (notas)':'Receita', brl(S.receita), 'entra no mês'),
+      cel('Comprometido', brl(S.comprometido), S.p==null?'—':`${pct(S.p)} da receita`),
+      cel('Já pago', brl(pg.pago), pg.n ? `${pg.nPagas} de ${pg.n} contas` : 'sem contas','kpi-pago'),
+      cel('Falta pagar', brl(pg.falta), pg.n ? `${pg.n-pg.nPagas} em aberto` : '—','kpi-falta'),
+      cel('Próximo mês', brl(Sn.comprometido), `em ${fmtMesCurto(month+1)}`),
+      cel('Imposto seguinte', brl(Sn.tax.imposto), escopo==='pessoal' ? 'fora do escopo' : `sobre notas de ${fmtMesCurto(Sn.tax.ref)}`))));
+  /* onde o dinheiro vai: categorias | maiores gastos | planejado × real */
+  const DV = desviosReais(month, S);
+  if(painelModo==='real' && !DV) painelModo = 'cat';
   const lista = h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-0.5 fade-b');
   lista.scrollTop = scrollCat;
   lista.addEventListener('scroll', ()=>{ scrollCat = lista.scrollTop; }, {passive:true});
+  const cats = [...S.porCat.entries()].map(([nome,e])=>({ nome, e })).sort((a,b)=>b.e.v-a.e.v);
   if(painelModo==='top'){
     const itens = S.rows.filter(x=>x.v>0).map(x=>({ n:x.d.descricao||'(sem descrição)', v:x.v }));
     if(S.tax.imposto>0) itens.push({ n:'Imposto s/ nota', v:S.tax.imposto });
     const maiores = itens.sort((a,b)=>b.v-a.v).slice(0,10);
-    if(maiores.length) maiores.forEach(x=>lista.append(h('div','shrink-0', lineRow(x.n, x.v, S.receita, '--indigo','--cyan'))));
+    if(maiores.length) maiores.forEach(x=>lista.append(h('div','shrink-0', miniRow(x.n, x.v, S.receita))));
     else lista.append(h('div','flex-1 grid place-items-center text-sm text-dim','Sem gastos neste mês.'));
+  } else if(painelModo==='real'){
+    lista.append(h('div','shrink-0 px-1 pb-1 text-[0.66rem] text-dim leading-snug','Só categorias com lançamentos no extrato; num mês em andamento o real ainda tende a ficar abaixo do planejado.'));
+    DV.slice(0,8).forEach(x=>lista.append(h('div','shrink-0 px-1 py-1 flex items-center justify-between gap-2 min-w-0',{title:`${x.c}: real ${brl(x.r)} · planejado ${brl(x.p)}`},
+      h('div','min-w-0', h('div','truncate text-[0.78rem] text-fg/90', x.c), h('div','text-[0.66rem] text-dim truncate','real ', h('span','pv num text-mut',brl(x.r)), ' · plan. ', h('span','pv num',brl(x.p)))),
+      h('span',`num text-[0.72rem] font-semibold shrink-0 rounded-md px-1.5 py-0.5 ${x.d>0.005?'chip-red':x.d<-0.005?'chip-green':'chip-gray'}`, h('span','pv', (x.d>0.005?'+ ':x.d<-0.005?'− ':'') + brl(Math.abs(x.d)))))));
   } else cats.forEach(({nome, e})=>{
     const subs = [...e.subs.entries()].filter(([,v])=>v!==0).sort((a,b)=>b[1]-a[1]);
     const pode = subs.length>0, abre = pode && expandidas.has(nome);
     const dica = pode ? `${nome}: ${brl(e.v)}\n` + subs.map(([s,v])=>`• ${s||'Geral'}: ${brl(v)}`).join('\n') + '\n(clique para expandir)' : `${nome}: ${brl(e.v)}`;
     const seta = pode ? h('span','inline-grid shrink-0 text-dim transition-transform duration-300 ease-out',{style:`transform:rotate(${abre?90:0}deg)`}, ic('chevron-right','w-3.5 h-3.5')) : h('span','w-3.5 shrink-0');
-    const nomeEl = h('span',`truncate text-[0.8125rem] transition-[font-weight] ${abre?'font-semibold':'text-fg/90'}`, nome);
+    const nomeEl = h('span',`truncate text-[0.78rem] transition-[font-weight] ${abre?'font-semibold':'text-fg/90'}`, nome);
     const subsWrap = pode ? h('div','grid transition-[grid-template-rows] duration-300 ease-out',{style:`grid-template-rows:${abre?'1fr':'0fr'}`},
       h('div','overflow-hidden min-h-0',
-        h('div','ml-3 mt-0.5 mb-1.5 pl-2.5 border-l border-hair flex flex-col gap-0.5',
-          subs.map(([s,v])=>lineRow(s||'Geral', v, S.receita, '--indigo','--indigo', false, { sub:true, indent:true }))))) : null;
+        h('div','ml-3 mt-0.5 mb-1 pl-2 border-l border-hair flex flex-col',
+          subs.map(([s,v])=>miniRow(s||'Geral', v, S.receita, { sub:true }))))) : null;
     if(subsWrap && !abre) subsWrap.inert = true;
     const cab = h('div',`shrink-0 select-none ${pode?'cursor-pointer':''}`,
       pode ? {role:'button',tabindex:'0','aria-expanded':String(abre)} : {},
-      lineRow(h('span','flex items-center gap-1 min-w-0', seta, nomeEl), e.v, S.receita, '--indigo','--cyan', e.v===0, { title:dica }));
+      miniRow(h('span','flex items-center gap-1 min-w-0', seta, nomeEl), e.v, S.receita, { dim:e.v===0, title:dica }));
     if(pode){
       const alternar = () => {
         const abrir = !expandidas.has(nome);
@@ -1088,38 +1201,54 @@ function viewPainel(){
     }
     lista.append(h('div','shrink-0', cab, subsWrap));
   });
-  const modo = h('div','ctl',{role:'radiogroup','aria-label':'Mostrar'}, [['cat','Categorias'],['top','Maiores gastos']].map(([k,l])=>
-    h('button','esc !h-6 !px-2.5 !text-[0.72rem]',{type:'button',role:'radio','aria-checked':String(painelModo===k),onclick:()=>{ if(painelModo!==k){ painelModo = k; render(); } }}, l)));
-  root.append(h('section','glass rounded-2xl p-4 lg:col-span-4 flex flex-col min-h-0 overflow-hidden',
-    h('div','flex items-center justify-between gap-2 mb-2.5 shrink-0', h('span','text-[0.95rem] font-semibold', painelModo==='top'?'Maiores gastos':'Por categoria'), modo),
+  const modos = [['cat','Categorias'],['top','Maiores']]; if(DV) modos.push(['real','Real']);
+  const modo = h('div','ctl',{role:'radiogroup','aria-label':'Mostrar'}, modos.map(([k,l])=>
+    h('button','esc !h-6 !px-2 !text-[0.7rem]',{type:'button',role:'radio','aria-checked':String(painelModo===k),onclick:()=>{ if(painelModo!==k){ painelModo = k; render(); } }}, l)));
+  root.append(card('lg:col-span-4',
+    h('div','flex items-center justify-between gap-2 mb-1.5 shrink-0', h('span','text-[0.95rem] font-semibold', painelModo==='top'?'Maiores gastos':painelModo==='real'?'Planejado × real':'Por categoria'), modo),
     lista));
 
-  const parc = S.rows.filter(x=>x.v!==0 && x.d.tipo==='Parcelada');
-  root.append(h('section','glass rounded-2xl p-4 lg:col-span-4 flex flex-col min-h-0 overflow-hidden',
-    h('div','flex items-baseline justify-between gap-2 mb-2.5 shrink-0', h('span','text-[0.95rem] font-semibold','Parcelamentos'),
-      parc.length ? h('span','num text-[0.72rem] text-dim font-medium',`${brl(sum(parc,x=>x.v))}/mês · última ${S.ultima==null?'–':fmtMes(S.ultima)}`) : null),
-    parc.length
-      ? h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-3 fade-b', parc.map(({d,v})=>{
-          const sp = despSpan(d), n = d.parcelas||0, k = sp && n ? Math.min(n, month-sp.s+1) : 0;
-          return h('div','',
-            h('div','flex items-baseline justify-between gap-3',
-              h('div','min-w-0', h('span','text-[0.8125rem] font-medium',d.descricao), h('span','text-[0.72rem] text-dim ml-2',[d.categoria,d.sub].filter(Boolean).join(' › '))),
-              h('span','num text-[0.8125rem] font-semibold shrink-0',brl(v))),
-            h('div','mt-1.5 flex items-center gap-2.5', parcPills(k,n), h('span','num text-[0.7rem] text-mut whitespace-nowrap font-medium', n?`${k}/${n}`:'')),
-            h('div','mt-1 flex justify-between text-[0.7rem] text-dim',
-              h('span','',`restam ${mesesRestantes(d,month)??'–'}`), h('span','',`saldo `,h('span','num text-mut',brl(saldoFuturo(d,month))))));
-        }))
-      : h('div','flex-1 grid place-items-center text-sm text-dim','Nenhum parcelamento ativo neste mês.')));
-
-  root.append(h('section','glass rounded-2xl p-4 lg:col-span-4 flex flex-col min-h-0 overflow-hidden',
-    h('div','flex items-center justify-between gap-2 mb-2.5 shrink-0', h('span','text-[0.95rem] font-semibold','Próximos 6 meses'),
+  /* ── Faixa 3 · Próximos meses ── */
+  root.append(faixa('trending-up', 'Próximos meses', ''));
+  root.append(card('lg:col-span-5',
+    h('div','flex items-center justify-between gap-2 mb-1.5 shrink-0', h('span','text-[0.95rem] font-semibold','Próximos 6 meses'),
       h('div','hidden min-[1700px]:flex items-center gap-2.5 text-[0.66rem] text-dim',
         h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--indigo))'}),'Fixas'),
         h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--indigo) / .42)'}),'Parc.'),
         h('span','flex items-center gap-1',h('i','w-2 h-2 rounded-sm',{style:'background:rgb(var(--amber))'}),'Imp.'),
         h('span','flex items-center gap-1',h('i','w-3 border-t-2 border-dashed border-income'),'Receita'))),
     miniProjecao(escopo)));
-
+  /* mês mais apertado */
+  const ap = mesApertado(escopo);
+  root.append(card('lg:col-span-3',
+    titulo('Mês mais apertado', linkBtn('Projeção', ()=>irPara('projecao'))),
+    ap ? [
+      h('div','flex items-center gap-2 flex-wrap', h('span',`text-[1.7rem] font-bold leading-none ${TONE[ap.st].text}`, fmtMesCurto(ap.m)), pill(ap.st, STATUS_TXT[ap.st].badge)),
+      h('div','mt-2 num text-[0.95rem] font-semibold', `${pct(ap.p)} comprometido`),
+      h('div','text-[0.74rem] text-mut', 'sobram ', h('span','num text-fg font-medium', h('span','pv', brl(ap.saldo)))),
+      h('div','mt-auto pt-2 text-[0.7rem] text-dim', S.p==null ? 'entre os próximos 12 meses' : (()=>{ const dp = Math.round((ap.p-S.p)*100); return `${dp===0?'igual a':(dp>0?'+':'−')+Math.abs(dp)+' pontos vs.'} ${fmtMesCurto(month)} · entre os próximos 12 meses`; })())
+    ] : h('div','flex-1 grid place-items-center text-sm text-dim text-center','Sem receita cadastrada nos próximos 12 meses.')));
+  /* parcelas que terminam + compra planejada */
+  const parc = S.rows.filter(x=>x.v!==0 && x.d.tipo==='Parcelada').map(x=>({ ...x, sp:despSpan(x.d) })).filter(x=>x.sp && x.sp.e!=null).sort((a,b)=>a.sp.e-b.sp.e);
+  const cp = compraDaFaixa();
+  const rodape = cp ? (cp.ok
+      ? [ic('circle-check','w-3.5 h-3.5 text-mint shrink-0 mt-0.5'), h('span','',`${cp.c.item||'Compra'} cabe em ${fmtMesCurto(cp.mes)}, sobrando `, h('span','num text-fg font-medium',h('span','pv',brl(cp.sobra))), '.')]
+      : [ic('triangle-alert','w-3.5 h-3.5 text-amber shrink-0 mt-0.5'), h('span','',`${cp.c.item||'Compra'} não cabe em ${fmtMesCurto(cp.mes)} (faltam `, h('span','num text-fg font-medium',h('span','pv',brl(-cp.sobra))), cp.viavel!=null?`); cabe a partir de ${fmtMesCurto(cp.viavel)}.`:'); nenhum dos próximos 12 meses comporta.')])
+    : [ic('shopping-cart','w-3.5 h-3.5 shrink-0 mt-0.5'), h('span','','Sem compras planejadas. '), linkBtn('Abrir compras', ()=>irPara('compras'))];
+  root.append(card('lg:col-span-4',
+    titulo('Parcelas que terminam', parc.length ? h('span','num text-[0.7rem] text-dim font-medium',`${brl(sum(parc,x=>x.v))}/mês hoje`) : null),
+    parc.length
+      ? h('div','flex-1 min-h-0 overflow-y-auto scroll-thin pr-1 flex flex-col gap-2 fade-b', parc.map(({d,v,sp})=>{
+          const n = d.parcelas||0, k = n ? Math.min(n, month-sp.s+1) : 0;
+          return h('div','shrink-0',
+            h('div','flex items-baseline justify-between gap-2',
+              h('span','text-[0.78rem] font-medium truncate',d.descricao||'(parcela)'),
+              h('span','num text-[0.72rem] text-mut whitespace-nowrap',n?`${k}/${n}`:'')),
+            h('div','mt-1 flex items-center gap-2', parcPills(k,n)),
+            h('div','mt-0.5 text-[0.68rem] text-dim',`termina em ${fmtMesCurto(sp.e)} · libera `, h('span','num text-mut',h('span','pv',brl(v))), '/mês'));
+        }))
+      : h('div','flex-1 grid place-items-center text-sm text-dim text-center','Nenhum parcelamento ativo neste mês.'),
+    h('div','shrink-0 mt-2 pt-2 border-t border-hair flex items-start gap-1.5 text-[0.72rem] text-mut leading-snug', rodape)));
   return root;
 }
 
